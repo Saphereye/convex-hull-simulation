@@ -1,4 +1,3 @@
-use bevy::window::PrimaryWindow;
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
@@ -14,7 +13,6 @@ fn main() {
         .run();
 }
 
-const X_EXTENT: f32 = 600.;
 const MAX_RADIUS: f32 = 50.0;
 
 fn setup(
@@ -36,7 +34,7 @@ fn setup(
         // Distribute colors evenly across the rainbow.
         let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
 
-        let angle = 2.0 * 3.14 * index * (1.0 / golden_angle);
+        let angle = 2.0 * std::f32::consts::PI * index * (1.0 / golden_angle);
         let radius = MAX_RADIUS * (index - 0.5).sqrt();
 
         let x = angle.cos() * radius;

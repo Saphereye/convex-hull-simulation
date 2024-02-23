@@ -1,3 +1,5 @@
+use bevy::render::render_asset::RenderAssetUsages;
+use bevy::render::render_resource::PrimitiveTopology;
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
@@ -28,7 +30,10 @@ fn setup(mut commands: Commands) {
 }
 
 #[derive(Component)]
-struct PointSingle(Vec2);
+struct PointSingle;
+
+#[derive(Component)]
+struct ConvexHull;
 
 #[derive(Resource)]
 struct NumberOfPoints(usize);
@@ -54,6 +59,7 @@ fn ui(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     point_query: Query<Entity, With<PointSingle>>,
+    convex_hull_query: Query<Entity, With<ConvexHull>>,
     mut number_of_points: ResMut<NumberOfPoints>,
     mut point_data: ResMut<PointData>,
 ) {
@@ -90,13 +96,34 @@ fn ui(
                         transform: Transform::from_xyz(x, y, 0.0),
                         ..default()
                     },
-                    PointSingle(Vec2::new(x, y)),
+                    PointSingle,
                 ));
             })
         }
 
         if ui.add(egui::Button::new("Generate Mesh")).clicked() {
-            println!("Points in space: {:?}", point_data.0);
+            for entity in convex_hull_query.iter() {
+                commands.entity(entity).despawn();
+            }
+            let vertices: Vec<[f32; 3]> = point_data
+                .0
+                .iter()
+                .map(|point| [point.x as f32, point.y as f32, 0.0])
+                .collect();
+
+            commands.spawn((
+                MaterialMesh2dBundle {
+                    mesh: Mesh2dHandle(
+                        meshes.add(
+                            Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
+                                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices),
+                        ),
+                    ),
+                    material: materials.add(Color::rgb(1.0, 1.0, 1.0)),
+                    ..default()
+                },
+                ConvexHull,
+            ));
         }
     });
 }

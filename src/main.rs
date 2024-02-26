@@ -22,21 +22,21 @@ mod distributions;
 use distributions::*;
 
 #[derive(Component)]
-pub struct PointSingle;
+struct PointSingle;
 
 #[derive(Resource)]
-pub struct NumberOfPoints(pub usize);
+struct NumberOfPoints(usize);
 
 #[derive(Resource)]
-pub struct SimulationTimeSec(pub f32);
+struct SimulationTimeSec(f32);
 
 #[derive(Resource, Debug)]
-pub struct PointData(pub Vec<Vec2>);
+struct PointData(Vec<Vec2>);
 
 #[derive(Resource)]
-pub struct SimulationTimer(pub Timer);
+struct SimulationTimer(Timer);
 
-pub fn despawn_entities<T: Component>(commands: &mut Commands, query: &Query<Entity, With<T>>) {
+fn despawn_entities<T: Component>(commands: &mut Commands, query: &Query<Entity, With<T>>) {
     for entity in query.iter() {
         commands.entity(entity).despawn();
     }
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn drawing_ui(
-    commands: Commands,
+    mut commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<ColorMaterial>>,
     point_data: ResMut<PointData>,
@@ -81,12 +81,10 @@ fn drawing_ui(
     time: Res<Time>,
     mut simulation_timer: ResMut<SimulationTimer>,
     algorithm: ResMut<Algorithm>,
+    gizmo_query: Query<Entity, With<Gizmo>>,
 ) {
-    if point_data.0.len() < 1 {
-        return;
-    }
-
-    if !drawing_in_progress.0 {
+    if point_data.0.len() < 1 || !drawing_in_progress.0  {
+        despawn_entities(&mut commands, &gizmo_query);
         return;
     }
 
@@ -94,11 +92,12 @@ fn drawing_ui(
     if !simulation_timer.0.finished() {
         return;
     }
+    despawn_entities(&mut commands, &gizmo_query);
 
     match algorithm.0 {
         AlgorithmType::JarvisMarch => {
             jarvis_march(
-                commands,
+                &mut commands,
                 meshes,
                 materials,
                 point_data.0.clone(),
@@ -108,7 +107,7 @@ fn drawing_ui(
         }
         AlgorithmType::KirkPatrickSeidel => {
             kirk_patrick_seidel(
-                commands,
+                &mut commands,
                 meshes,
                 materials,
                 point_data.0.clone(),
@@ -136,7 +135,7 @@ fn ui(
     mut algorithm: ResMut<Algorithm>,
 ) {
     egui::Window::new("Inspector").show(contexts.ctx_mut(), |ui| {
-        ui.add(egui::Slider::new(&mut number_of_points.0, 0..=1_000).text("Number of points"));
+        ui.add(egui::Slider::new(&mut number_of_points.0, 0..=100_000).text("Number of points"));
         if ui
             .add(egui::Slider::new(&mut simulation_time.0, 0.0..=1.0).text("Simulation time (s)"))
             .changed()
@@ -180,7 +179,8 @@ fn ui(
                     }
                     DistributionType::Random => {
                         let (x, y) = bounded_random(number_of_points.0);
-                        let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
+                        let color =
+                            Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
                         point_data.0.push(Vec2::new(x, y));
 
                         commands.spawn((

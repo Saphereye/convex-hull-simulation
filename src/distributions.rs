@@ -31,17 +31,3 @@ pub fn bounded_random(num_shapes: usize) -> (f32, f32) {
 
     (x, y)
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_fibonacci_circle() {
-        todo!("Implement test for fibonacci_circle")
-    }
-
-    #[test]
-    fn test_bounded_random() {
-        todo!("Implement test for bounded_random")
-    }
-}

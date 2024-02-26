@@ -23,8 +23,31 @@ pub enum AlgorithmType {
 #[derive(Resource)]
 pub struct Algorithm(pub AlgorithmType);
 
+/// # Implementation of the [Jarvis March](https://en.wikipedia.org/wiki/Gift_wrapping_algorithm) algorithm
+/// This algorithm is used to calculate the convex hull of given set of points.
+/// It has a `O(nh)` time complexity, where `n` is the number of points and `h` is the number of points on the convex hull.
+/// <p><a href="https://commons.wikimedia.org/wiki/File:Animation_depicting_the_gift_wrapping_algorithm.gif#/media/File:Animation_depicting_the_gift_wrapping_algorithm.gif"><img src="https://upload.wikimedia.org/wikipedia/commons/9/9c/Animation_depicting_the_gift_wrapping_algorithm.gif" alt="Animation depicting the gift wrapping algorithm.gif" height="401" width="401"></a><br></p>
+///
+/// ## Pseudocode
+/// ```pseudocode
+/// algorithm jarvis(S) is
+///     # S is the set of points
+///     # P will be the set of points which form the convex hull. Final set size is i.
+///     pointOnHull = leftmost point in S // which is guaranteed to be part of the CH(S)
+///     i := 0
+///     repeat
+///         P[i] := pointOnHull
+///         endpoint := S[0]      // initial endpoint for a candidate edge on the hull
+///         for j from 0 to |S| do
+///             # endpoint == pointOnHull is a rare case and can happen only when j == 1 and a better endpoint has not yet been set for the loop
+///             if (endpoint == pointOnHull) or (S[j] is on left of line from P[i] to endpoint) then
+///                 endpoint := S[j]   // found greater left turn, update endpoint
+///         i := i + 1
+///         pointOnHull = endpoint
+///     until endpoint = P[0]      // wrapped around to first hull point
+/// ```
 pub fn jarvis_march(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     points: Vec<Vec2>,
@@ -63,10 +86,6 @@ pub fn jarvis_march(
         }
     }
 
-    info!(
-        "Drawing final line from {:?} to {:?}",
-        previous_point, points[next]
-    );
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: Mesh2dHandle(
@@ -97,7 +116,7 @@ pub fn jarvis_march(
 }
 
 pub fn kirk_patrick_seidel(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     points: Vec<Vec2>,

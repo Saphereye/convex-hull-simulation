@@ -1,11 +1,46 @@
-use bevy::render::render_asset::RenderAssetUsages;
-use bevy::render::render_resource::PrimitiveTopology;
+//! # Convex Hull Simulation
+//! A rust based step by step simulation of Jarvis March and Kirk Patrick Seidel algorithms for convex hull generation.
+//! The program uses [Bevy](https://bevyengine.org) as the game engine and [egui](https://github.com/emilk/egui) for the ui library.
+//!
+//! ## Program flow
+//! [![](https://mermaid.ink/img/pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA?type=png)](https://mermaid.live/edit#pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA)
+//!
+//! ## Comparison between Jarvis March and Kirk Patrick Seidel
+//! todo
+
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_pancam::{PanCam, PanCamPlugin};
+
+mod algorithms;
+use algorithms::*;
+
+mod distributions;
+use distributions::*;
+
+#[derive(Component)]
+pub struct PointSingle;
+
+#[derive(Resource)]
+pub struct NumberOfPoints(pub usize);
+
+#[derive(Resource)]
+pub struct SimulationTimeSec(pub f32);
+
+#[derive(Resource, Debug)]
+pub struct PointData(pub Vec<Vec2>);
+
+#[derive(Resource)]
+pub struct SimulationTimer(pub Timer);
+
+pub fn despawn_entities<T: Component>(commands: &mut Commands, query: &Query<Entity, With<T>>) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
+    }
+}
 
 fn main() {
     App::new()
@@ -26,9 +61,6 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
-struct Gizmo;
-
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default()).insert(PanCam {
         grab_buttons: vec![MouseButton::Left, MouseButton::Middle], // which buttons should drag the camera
@@ -40,61 +72,15 @@ fn setup(mut commands: Commands) {
     });
 }
 
-#[derive(PartialEq)]
-enum DistributionType {
-    Fibonacci,
-    Random,
-}
-
-#[derive(PartialEq)]
-enum AlgorithmType {
-    JarvisMarch,
-    KirkPatrickSeidel,
-}
-
-#[derive(Component)]
-struct PointSingle;
-
-#[derive(Component)]
-struct ConvexHull;
-
-#[derive(Resource)]
-struct NumberOfPoints(usize);
-
-#[derive(Resource)]
-struct SimulationTimeSec(f32);
-
-#[derive(Resource)]
-struct DrawingInProgress(bool, usize, usize); // (is_drawing, number of iterations reached, initial state of the drawing)
-
-#[derive(Resource, Debug)]
-struct PointData(Vec<Vec2>);
-
-#[derive(Resource)]
-struct Distribution(DistributionType);
-
-#[derive(Resource)]
-struct Algorithm(AlgorithmType);
-
-#[derive(Resource)]
-struct SimulationTimer(Timer);
-
 fn drawing_ui(
-    mut contexts: EguiContexts,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    point_query: Query<Entity, With<PointSingle>>,
-    convex_hull_query: Query<Entity, With<ConvexHull>>,
-    mut number_of_points: ResMut<NumberOfPoints>,
-    mut point_data: ResMut<PointData>,
-    mut distribution: ResMut<Distribution>,
-    mut gizmo_query: Query<Entity, With<Gizmo>>,
-    mut drawing_in_progress: ResMut<DrawingInProgress>,
-    mut simulation_time: ResMut<SimulationTimeSec>,
+    commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<ColorMaterial>>,
+    point_data: ResMut<PointData>,
+    drawing_in_progress: ResMut<DrawingInProgress>,
     time: Res<Time>,
     mut simulation_timer: ResMut<SimulationTimer>,
-    mut algorithm: ResMut<Algorithm>,
+    algorithm: ResMut<Algorithm>,
 ) {
     if point_data.0.len() < 1 {
         return;
@@ -111,77 +97,24 @@ fn drawing_ui(
 
     match algorithm.0 {
         AlgorithmType::JarvisMarch => {
-            let points = point_data.0.clone();
-            let mut current = drawing_in_progress.1;
-            let previous_point = [points[current].x as f32, points[current].y as f32, 0.0];
-            let mut next = (current + 1) % points.len();
-            for (i, point) in points.iter().enumerate() {
-                commands.spawn((
-                    MaterialMesh2dBundle {
-                        mesh: Mesh2dHandle(
-                            meshes.add(
-                                Mesh::new(
-                                    PrimitiveTopology::LineStrip,
-                                    RenderAssetUsages::default(),
-                                )
-                                .with_inserted_attribute(
-                                    Mesh::ATTRIBUTE_POSITION,
-                                    vec![
-                                        [previous_point[0], previous_point[1], 0.0],
-                                        [point.x as f32, point.y as f32, 0.0],
-                                    ],
-                                ),
-                            ),
-                        ),
-                        material: materials.add(Color::rgb(0.44, 0.44, 0.44)),
-                        ..default()
-                    },
-                    Gizmo,
-                ));
-                if i != current && i != next {
-                    let cross = (point.x - points[current].x)
-                        * (points[next].y - points[current].y)
-                        - (point.y - points[current].y) * (points[next].x - points[current].x);
-                    if cross < 0.0 {
-                        next = i;
-                    }
-                }
-            }
-
-            info!(
-                "Drawing final line from {:?} to {:?}",
-                previous_point, points[next]
+            jarvis_march(
+                commands,
+                meshes,
+                materials,
+                point_data.0.clone(),
+                drawing_in_progress.1,
+                drawing_in_progress,
             );
-            commands.spawn((
-                MaterialMesh2dBundle {
-                    mesh: Mesh2dHandle(
-                        meshes.add(
-                            Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
-                                .with_inserted_attribute(
-                                    Mesh::ATTRIBUTE_POSITION,
-                                    vec![
-                                        [previous_point[0], previous_point[1], 0.0],
-                                        [points[next].x as f32, points[next].y as f32, 0.0],
-                                    ],
-                                ),
-                        ),
-                    ),
-                    material: materials.add(Color::rgb(1.0, 1.0, 1.0)),
-                    ..default()
-                },
-                ConvexHull,
-            ));
-
-            current = next;
-            drawing_in_progress.1 = current;
-            if current == drawing_in_progress.2 {
-                drawing_in_progress.0 = false;
-                drawing_in_progress.1 = 0;
-                return;
-            }
         }
         AlgorithmType::KirkPatrickSeidel => {
-            todo!("Implement Kirk Patrick Seidel")
+            kirk_patrick_seidel(
+                commands,
+                meshes,
+                materials,
+                point_data.0.clone(),
+                drawing_in_progress.1,
+                drawing_in_progress,
+            );
         }
     }
 }
@@ -196,7 +129,7 @@ fn ui(
     mut number_of_points: ResMut<NumberOfPoints>,
     mut point_data: ResMut<PointData>,
     mut distribution: ResMut<Distribution>,
-    mut gizmo_query: Query<Entity, With<Gizmo>>,
+    gizmo_query: Query<Entity, With<Gizmo>>,
     mut drawing_in_progress: ResMut<DrawingInProgress>,
     mut simulation_time: ResMut<SimulationTimeSec>,
     mut simulation_timer: ResMut<SimulationTimer>,
@@ -214,40 +147,21 @@ fn ui(
         }
 
         if ui.add(egui::Button::new("Generate World")).clicked() {
-            for entity in point_query.iter() {
-                commands.entity(entity).despawn();
-            }
-
-            for entity in convex_hull_query.iter() {
-                commands.entity(entity).despawn();
-            }
-
-            for entity in gizmo_query.iter() {
-                commands.entity(entity).despawn();
-            }
-
+            despawn_entities(&mut commands, &point_query);
+            despawn_entities(&mut commands, &convex_hull_query);
+            despawn_entities(&mut commands, &gizmo_query);
             drawing_in_progress.0 = false;
             drawing_in_progress.1 = 0;
             drawing_in_progress.2 = 0;
             point_data.0.clear();
 
-            let num_shapes = number_of_points.0;
-
-            let golden_angle = 137.5_f32.to_radians();
-
-            (0..num_shapes)
+            (0..number_of_points.0)
                 .into_iter()
                 .for_each(|i| match distribution.0 {
                     DistributionType::Fibonacci => {
-                        let index: f32 = (i as f32) - (i as f32) / 2.0;
-                        let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
-
-                        let angle = 2.0 * std::f32::consts::PI * index * (1.0 / golden_angle);
-                        let radius = 100.0 * (index - 0.5).sqrt();
-
-                        let x = angle.cos() * radius;
-                        let y = angle.sin() * radius;
-
+                        let color =
+                            Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
+                        let (x, y) = fibonacci_circle(i);
                         if x.is_nan() || y.is_nan() {
                             return;
                         }
@@ -265,13 +179,8 @@ fn ui(
                         ));
                     }
                     DistributionType::Random => {
-                        let radius = number_of_points.0 as f32 * 25.0 * rand::random::<f32>();
-                        let angle: f32 = rand::random::<f32>() * 2.0 * std::f32::consts::PI;
-                        let x = angle.cos() * radius;
-                        let y = angle.sin() * radius;
-
-                        let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
-
+                        let (x, y) = bounded_random(number_of_points.0);
+                        let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
                         point_data.0.push(Vec2::new(x, y));
 
                         commands.spawn((
@@ -307,11 +216,7 @@ fn ui(
                 AlgorithmType::KirkPatrickSeidel => "Kirk Patrick Seidel",
             })
             .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut algorithm.0,
-                    AlgorithmType::JarvisMarch,
-                    "Jarvis March",
-                );
+                ui.selectable_value(&mut algorithm.0, AlgorithmType::JarvisMarch, "Jarvis March");
                 ui.selectable_value(
                     &mut algorithm.0,
                     AlgorithmType::KirkPatrickSeidel,
@@ -320,12 +225,8 @@ fn ui(
             });
 
         if ui.add(egui::Button::new("Generate Mesh")).clicked() {
-            for entity in convex_hull_query.iter() {
-                commands.entity(entity).despawn();
-            }
-            for entity in gizmo_query.iter() {
-                commands.entity(entity).despawn();
-            }
+            despawn_entities(&mut commands, &convex_hull_query);
+            despawn_entities(&mut commands, &gizmo_query);
             drawing_in_progress.0 = true;
             drawing_in_progress.1 = 0;
             let points = point_data.0.clone();

@@ -36,6 +36,53 @@ struct PointData(Vec<Vec2>);
 #[derive(Resource)]
 struct SimulationTimer(Timer);
 
+/// `create_combo_box` is a macro that creates a combo box with egui for given enum and its variants.
+///
+/// # Arguments
+///
+/// * `$ui`: A mutable reference to the `Ui` instance where the combo box will be displayed.
+/// * `$label`: The label for the combo box.
+/// * `$distribution`: The current selected value of the combo box.
+/// * `$enum`: The enum type of the values that can be selected in the combo box.
+/// * `$variant`: The variant(s) of the enum that can be selected in the combo box.
+///
+/// # Examples
+///
+/// ```
+/// #[derive(PartialEq)] // Required by combo box for ordering
+/// pub enum DistributionType { // Needs to be defined to be used in the combo box
+///     Fibonacci,
+///     Random,
+/// }
+///
+/// create_combo_box!(
+///     ui, 
+///     "Select distribution type", 
+///     distribution.0, 
+///     DistributionType, 
+///     Fibonacci, 
+///     Random
+/// ); // This will create a combo box with choices 'Fibonacci' and 'Random'
+/// ```
+macro_rules! create_combo_box {
+    ($ui:expr, $label:expr, $distribution:expr, $enum:ident, $($variant:ident),+) => {
+        egui::ComboBox::from_label($label)
+            .selected_text(match $distribution {
+                $($enum::$variant => stringify!($variant),)+
+            })
+            .show_ui($ui, |ui| {
+                $(
+                    ui.selectable_value(
+                        &mut $distribution,
+                        $enum::$variant,
+                        stringify!($variant),
+                    );
+                )+
+            });
+    };
+}
+
+#[inline]
 fn despawn_entities<T: Component>(commands: &mut Commands, query: &Query<Entity, With<T>>) {
     for entity in query.iter() {
         commands.entity(entity).despawn();
@@ -47,7 +94,7 @@ fn main() {
         .add_plugins((DefaultPlugins, EguiPlugin, PanCamPlugin::default()))
         .add_systems(Startup, setup)
         .add_systems(Update, ui)
-        .add_systems(Update, drawing_ui)
+        .add_systems(Update, graphics_drawing)
         .insert_resource(NumberOfPoints(10))
         .insert_resource(PointData(vec![]))
         .insert_resource(Distribution(DistributionType::Fibonacci))
@@ -72,7 +119,7 @@ fn setup(mut commands: Commands) {
     });
 }
 
-fn drawing_ui(
+fn graphics_drawing(
     mut commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<ColorMaterial>>,
@@ -83,7 +130,7 @@ fn drawing_ui(
     algorithm: ResMut<Algorithm>,
     gizmo_query: Query<Entity, With<Gizmo>>,
 ) {
-    if point_data.0.len() < 1 || !drawing_in_progress.0  {
+    if point_data.0.len() < 1 || !drawing_in_progress.0 {
         despawn_entities(&mut commands, &gizmo_query);
         return;
     }
@@ -196,33 +243,23 @@ fn ui(
                 })
         }
 
-        egui::ComboBox::from_label("Select distribution type")
-            .selected_text(match distribution.0 {
-                DistributionType::Fibonacci => "Fibonacci",
-                DistributionType::Random => "Random",
-            })
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut distribution.0,
-                    DistributionType::Fibonacci,
-                    "Fibonacci",
-                );
-                ui.selectable_value(&mut distribution.0, DistributionType::Random, "Random");
-            });
+        create_combo_box!(
+            ui,
+            "Select distribution type",
+            distribution.0,
+            DistributionType,
+            Fibonacci,
+            Random
+        );
 
-        egui::ComboBox::from_label("Select algorithmType")
-            .selected_text(match algorithm.0 {
-                AlgorithmType::JarvisMarch => "Jarvis March",
-                AlgorithmType::KirkPatrickSeidel => "Kirk Patrick Seidel",
-            })
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut algorithm.0, AlgorithmType::JarvisMarch, "Jarvis March");
-                ui.selectable_value(
-                    &mut algorithm.0,
-                    AlgorithmType::KirkPatrickSeidel,
-                    "Kirk Patrick Seidel",
-                );
-            });
+        create_combo_box!(
+            ui,
+            "Select algorithm type",
+            algorithm.0,
+            AlgorithmType,
+            JarvisMarch,
+            KirkPatrickSeidel
+        );
 
         if ui.add(egui::Button::new("Generate Mesh")).clicked() {
             despawn_entities(&mut commands, &convex_hull_query);

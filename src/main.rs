@@ -36,7 +36,7 @@ struct PointData(Vec<Vec2>);
 #[derive(Resource)]
 struct SimulationTimer(Timer);
 
-/// `create_combo_box` is a macro that creates a combo box with egui for given enum and its variants.
+/// Creates a combo box with egui for given enum and its variants.
 ///
 /// # Arguments
 ///

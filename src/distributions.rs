@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum DistributionType {
     Fibonacci,
     Random,

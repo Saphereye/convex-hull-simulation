@@ -8,6 +8,8 @@
 //! ## Comparison between Jarvis March and Kirk Patrick Seidel
 //! todo
 
+use std::fmt::{Debug, Display};
+
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
@@ -36,50 +38,19 @@ struct PointData(Vec<Vec2>);
 #[derive(Resource)]
 struct SimulationTimer(Timer);
 
-/// Creates a combo box with egui for given enum and its variants.
-///
-/// # Arguments
-///
-/// * `$ui`: A mutable reference to the `Ui` instance where the combo box will be displayed.
-/// * `$label`: The label for the combo box.
-/// * `$distribution`: The current selected value of the combo box.
-/// * `$enum`: The enum type of the values that can be selected in the combo box.
-/// * `$variant`: The variant(s) of the enum that can be selected in the combo box.
-///
-/// # Examples
-///
-/// ```
-/// #[derive(PartialEq)] // Required by combo box for ordering
-/// pub enum DistributionType { // Needs to be defined to be used in the combo box
-///     Fibonacci,
-///     Random,
-/// }
-///
-/// create_combo_box!(
-///     ui, 
-///     "Select distribution type", 
-///     distribution.0, 
-///     DistributionType, 
-///     Fibonacci, 
-///     Random
-/// ); // This will create a combo box with choices 'Fibonacci' and 'Random'
-/// ```
-macro_rules! create_combo_box {
-    ($ui:expr, $label:expr, $distribution:expr, $enum:ident, $($variant:ident),+) => {
-        egui::ComboBox::from_label($label)
-            .selected_text(match $distribution {
-                $($enum::$variant => stringify!($variant),)+
-            })
-            .show_ui($ui, |ui| {
-                $(
-                    ui.selectable_value(
-                        &mut $distribution,
-                        $enum::$variant,
-                        stringify!($variant),
-                    );
-                )+
-            });
-    };
+fn create_combo_box<T: PartialEq + Copy>(
+    ui: &mut egui::Ui,
+    label: &str,
+    current: &mut T,
+    choices: &[(&str, T)],
+) {
+    egui::ComboBox::from_label(label)
+        .selected_text(choices.iter().find(|(_, value)| *value == *current).unwrap().0)
+        .show_ui(ui, |ui| {
+            for (name, value) in choices {
+                ui.selectable_value(current, *value, *name);
+            }
+        });
 }
 
 #[inline]
@@ -243,22 +214,24 @@ fn ui(
                 })
         }
 
-        create_combo_box!(
+        create_combo_box(
             ui,
             "Select distribution type",
-            distribution.0,
-            DistributionType,
-            Fibonacci,
-            Random
+            &mut distribution.0,
+            &[
+                ("Fibonacci", DistributionType::Fibonacci),
+                ("Random", DistributionType::Random),
+            ],
         );
 
-        create_combo_box!(
+        create_combo_box(
             ui,
-            "Select algorithm type",
-            algorithm.0,
-            AlgorithmType,
-            JarvisMarch,
-            KirkPatrickSeidel
+            "Select Algorithm Type",
+            &mut algorithm.0,
+            &[
+                ("Jarvis March", AlgorithmType::JarvisMarch),
+                ("Kirk Patrick Seidel", AlgorithmType::KirkPatrickSeidel),
+            ],
         );
 
         if ui.add(egui::Button::new("Generate Mesh")).clicked() {

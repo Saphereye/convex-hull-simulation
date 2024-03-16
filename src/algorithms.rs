@@ -14,7 +14,7 @@ pub struct Gizmo;
 #[derive(Component)]
 pub struct ConvexHull;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum AlgorithmType {
     JarvisMarch,
     KirkPatrickSeidel,

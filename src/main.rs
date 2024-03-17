@@ -10,6 +10,7 @@
 
 use std::fmt::Debug;
 
+use egui_extras::{TableBuilder, Column};
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
@@ -159,6 +160,7 @@ fn ui(
     mut algorithm: ResMut<Algorithm>,
 ) {
     egui::Window::new("Inspector").show(contexts.ctx_mut(), |ui| {
+        ui.label("Choose the number of points and the simulation time Δt.");
         ui.add(egui::Slider::new(&mut number_of_points.0, 0..=100_000).text("Number of points"));
         if ui
             .add(egui::Slider::new(&mut simulation_time.0, 0.0..=1.0).text("Simulation time (s)"))
@@ -168,6 +170,20 @@ fn ui(
                 .0
                 .set_duration(std::time::Duration::from_secs_f32(simulation_time.0));
         }
+
+        ui.separator();
+
+        ui.label("Select the distribution type and click `Generate world` to generate the points based on that");
+
+        create_combo_box(
+            ui,
+            "Select distribution type",
+            &mut distribution.0,
+            &[
+                ("Fibonacci", DistributionType::Fibonacci),
+                ("Random", DistributionType::Random),
+            ],
+        );
 
         if ui.add(egui::Button::new("Generate World")).clicked() {
             despawn_entities(&mut commands, &point_query);
@@ -216,16 +232,9 @@ fn ui(
             })
         }
 
-        create_combo_box(
-            ui,
-            "Select distribution type",
-            &mut distribution.0,
-            &[
-                ("Fibonacci", DistributionType::Fibonacci),
-                ("Random", DistributionType::Random),
-            ],
-        );
+        ui.separator();
 
+        ui.label("Select the algorithm type and click `Generate Mesh` to generate the convex hull based on the points");
         create_combo_box(
             ui,
             "Select Algorithm Type",
@@ -249,5 +258,56 @@ fn ui(
                 }
             }
         }
+
+        ui.separator();
+        TableBuilder::new(ui)
+            .column(Column::auto())
+            .column(Column::remainder())
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.heading("Name");
+                });
+                header.col(|ui| {
+                    ui.heading("ID");
+                });
+            })
+            .body(|mut body| {
+                body.row(30.0, |mut row| {
+                    row.col(|ui| {
+                        ui.label("Adarsh Das");
+                    });
+                    row.col(|ui| {
+                        ui.label("2021A7PS1511H");
+                    });
+                });
+
+                body.row(30.0, |mut row| {
+                    row.col(|ui| {
+                        ui.label("Divyateja Pasupuleti");
+                    });
+                    row.col(|ui| {
+                        ui.label("2021A7PS1511H");
+                    });
+                });
+
+                body.row(30.0, |mut row| {
+                    row.col(|ui| {
+                        ui.label("Manan Gupta");
+                    });
+                    row.col(|ui| {
+                        ui.label("2021A7PS1511H");
+                    });
+                });
+
+                body.row(30.0, |mut row| {
+                    row.col(|ui| {
+                        ui.label("Kumarasamy Chelliah");
+                    });
+                    row.col(|ui| {
+                        ui.label("2021A7PS1511H");
+                    });
+                });
+
+            });
     });
 }

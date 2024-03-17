@@ -31,7 +31,6 @@ jobs:
         run: wget -qO- https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
       - name: Build # build
         run: |
-          REPO=$(GITHUB_REPOSITORY)
           echo "Repo owner: `${{ github.repository_owner }}`"
           echo "Repo name: `${{ github.event.repository.name }}`"
           echo "Repo url: echo `${{ github.repository_owner }}` | tr '[:upper:]' '[:lower:]'.github.io/`${{ github.event.repository.name }}`"

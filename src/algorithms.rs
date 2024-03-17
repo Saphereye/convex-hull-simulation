@@ -114,6 +114,17 @@ pub fn jarvis_march(
     }
 }
 
+fn connect(lower: Vec2, upper: Vec2, points: Vec<Vec2>) -> Vec<Vec2> {
+    todo!("Implement connect")
+}
+
+fn flipped(points: Vec<Vec2>) -> Vec<Vec2> {
+    points
+        .iter()
+        .map(|&point| Vec2::new(-point.x, -point.y))
+        .collect()
+}
+
 pub fn kirk_patrick_seidel(
     commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -122,5 +133,38 @@ pub fn kirk_patrick_seidel(
     current: usize,
     mut drawing_in_progress: ResMut<DrawingInProgress>,
 ) {
-    todo!("Implement Kirk-Patrick Seidel algorithm")
+    let local_drawing_progress = 0;
+
+    // Get upper hull
+    let mut points = points;
+    points.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+    let lower = *points.first().unwrap();
+    let upper = *points.last().unwrap();
+    let filtered_points = points
+        .iter()
+        .filter(|&point| (lower.x < point.x) && (point.x < upper.x))
+        .cloned()
+        .collect();
+    let upper_hull = connect(lower, upper, filtered_points);
+
+    // Get lower hull
+    let mut points = flipped(points);
+    points.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+    let lower = *points.first().unwrap();
+    let upper = *points.last().unwrap();
+    let filtered_points = points
+        .iter()
+        .filter(|&point| (lower.x < point.x) && (point.x < upper.x))
+        .cloned()
+        .collect();
+    let lower_hull = flipped(connect(lower, upper, filtered_points));
+
+    let mut convex_hull = upper.clone();
+
+    // Update current in loop
+    drawing_in_progress.1 = current;
+    if current == drawing_in_progress.2 {
+        drawing_in_progress.0 = false;
+        drawing_in_progress.1 = 0;
+    }
 }

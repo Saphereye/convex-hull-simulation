@@ -32,7 +32,9 @@ jobs:
       - name: Build # build
         run: |
           REPO=$(GITHUB_REPOSITORY)
-          echo "Repo: $REPO "
+          echo "Repo owner: `${{ github.repository_owner }}`"
+          echo "Repo name: `${{ github.event.repository.name }}`"
+          echo "Repo url: echo `${{ github.repository_owner }}` | tr '[:upper:]' '[:lower:]'.github.io/`${{ github.event.repository.name }}`"
           ./trunk build --release --public-url https://saphereye.github.io/Convex-Hull-CS-F364/
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4

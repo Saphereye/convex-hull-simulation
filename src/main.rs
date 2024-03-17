@@ -10,13 +10,13 @@
 
 use std::fmt::Debug;
 
-use egui_extras::{TableBuilder, Column};
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_pancam::{PanCam, PanCamPlugin};
+use egui_extras::{Column, TableBuilder};
 
 mod algorithms;
 use algorithms::*;

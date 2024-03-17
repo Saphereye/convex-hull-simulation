@@ -31,9 +31,9 @@ jobs:
         run: wget -qO- https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
       - name: Build # build
         run: |
-          echo "Repo owner: `${{ github.repository_owner }}`"
-          echo "Repo name: `${{ github.event.repository.name }}`"
-          echo "Repo url: echo `${{ github.repository_owner }}` | tr '[:upper:]' '[:lower:]'.github.io/`${{ github.event.repository.name }}`"
+          echo "Repo owner: ${github.repository_owner}"
+          echo "Repo name: ${github.event.repository.name}"
+          echo "Repo URL: https://${github.repository_owner}.github.io/${github.event.repository.name}"
           ./trunk build --release --public-url https://saphereye.github.io/Convex-Hull-CS-F364/
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4

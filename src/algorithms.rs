@@ -55,7 +55,7 @@ pub fn jarvis_march(
     mut drawing_in_progress: ResMut<DrawingInProgress>,
 ) {
     let mut current = current;
-    let previous_point = [points[current].x as f32, points[current].y as f32, 0.0];
+    let previous_point = [points[current].x, points[current].y, 0.0];
     let mut next = (current + 1) % points.len();
     for (i, point) in points.iter().enumerate() {
         commands.spawn((
@@ -67,7 +67,7 @@ pub fn jarvis_march(
                                 Mesh::ATTRIBUTE_POSITION,
                                 vec![
                                     [previous_point[0], previous_point[1], 0.0],
-                                    [point.x as f32, point.y as f32, 0.0],
+                                    [point.x, point.y, 0.0],
                                 ],
                             ),
                     ),
@@ -95,7 +95,7 @@ pub fn jarvis_march(
                             Mesh::ATTRIBUTE_POSITION,
                             vec![
                                 [previous_point[0], previous_point[1], 0.0],
-                                [points[next].x as f32, points[next].y as f32, 0.0],
+                                [points[next].x, points[next].y, 0.0],
                             ],
                         ),
                 ),
@@ -111,7 +111,6 @@ pub fn jarvis_march(
     if current == drawing_in_progress.2 {
         drawing_in_progress.0 = false;
         drawing_in_progress.1 = 0;
-        return;
     }
 }
 

@@ -8,7 +8,7 @@
 //! ## Comparison between Jarvis March and Kirk Patrick Seidel
 //! todo
 
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
 use bevy::{
     prelude::*,
@@ -45,7 +45,13 @@ fn create_combo_box<T: PartialEq + Copy>(
     choices: &[(&str, T)],
 ) {
     egui::ComboBox::from_label(label)
-        .selected_text(choices.iter().find(|(_, value)| *value == *current).unwrap().0)
+        .selected_text(
+            choices
+                .iter()
+                .find(|(_, value)| *value == *current)
+                .unwrap()
+                .0,
+        )
         .show_ui(ui, |ui| {
             for (name, value) in choices {
                 ui.selectable_value(current, *value, *name);
@@ -62,7 +68,7 @@ fn despawn_entities<T: Component>(commands: &mut Commands, query: &Query<Entity,
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, EguiPlugin, PanCamPlugin::default()))
+        .add_plugins((DefaultPlugins, EguiPlugin, PanCamPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, ui)
         .add_systems(Update, graphics_drawing)
@@ -101,7 +107,7 @@ fn graphics_drawing(
     algorithm: ResMut<Algorithm>,
     gizmo_query: Query<Entity, With<Gizmo>>,
 ) {
-    if point_data.0.len() < 1 || !drawing_in_progress.0 {
+    if point_data.0.is_empty() || !drawing_in_progress.0 {
         despawn_entities(&mut commands, &gizmo_query);
         return;
     }
@@ -172,46 +178,42 @@ fn ui(
             drawing_in_progress.2 = 0;
             point_data.0.clear();
 
-            (0..number_of_points.0)
-                .into_iter()
-                .for_each(|i| match distribution.0 {
-                    DistributionType::Fibonacci => {
-                        let color =
-                            Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
-                        let (x, y) = fibonacci_circle(i);
-                        if x.is_nan() || y.is_nan() {
-                            return;
-                        }
-
-                        point_data.0.push(Vec2::new(x, y));
-
-                        commands.spawn((
-                            MaterialMesh2dBundle {
-                                mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
-                                material: materials.add(color),
-                                transform: Transform::from_xyz(x, y, 0.0),
-                                ..default()
-                            },
-                            PointSingle,
-                        ));
+            (0..number_of_points.0).for_each(|i| match distribution.0 {
+                DistributionType::Fibonacci => {
+                    let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
+                    let (x, y) = fibonacci_circle(i);
+                    if x.is_nan() || y.is_nan() {
+                        return;
                     }
-                    DistributionType::Random => {
-                        let (x, y) = bounded_random(number_of_points.0);
-                        let color =
-                            Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
-                        point_data.0.push(Vec2::new(x, y));
 
-                        commands.spawn((
-                            MaterialMesh2dBundle {
-                                mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
-                                material: materials.add(color),
-                                transform: Transform::from_xyz(x, y, 0.0),
-                                ..default()
-                            },
-                            PointSingle,
-                        ));
-                    }
-                })
+                    point_data.0.push(Vec2::new(x, y));
+
+                    commands.spawn((
+                        MaterialMesh2dBundle {
+                            mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
+                            material: materials.add(color),
+                            transform: Transform::from_xyz(x, y, 0.0),
+                            ..default()
+                        },
+                        PointSingle,
+                    ));
+                }
+                DistributionType::Random => {
+                    let (x, y) = bounded_random(number_of_points.0);
+                    let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
+                    point_data.0.push(Vec2::new(x, y));
+
+                    commands.spawn((
+                        MaterialMesh2dBundle {
+                            mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
+                            material: materials.add(color),
+                            transform: Transform::from_xyz(x, y, 0.0),
+                            ..default()
+                        },
+                        PointSingle,
+                    ));
+                }
+            })
         }
 
         create_combo_box(

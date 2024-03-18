@@ -34,7 +34,7 @@ struct NumberOfPoints(usize);
 struct SimulationTimeSec(f32);
 
 #[derive(Resource, Debug)]
-struct PointData(Vec<Point>);
+struct PointData(Vec<Vec2>);
 
 #[derive(Resource)]
 struct SimulationTimer(Timer);
@@ -76,12 +76,12 @@ fn main() {
         .insert_resource(NumberOfPoints(0))
         .insert_resource(PointData(vec![]))
         .insert_resource(Distribution(DistributionType::Fibonacci))
-        .insert_resource(DrawingInProgress(false, 0, 0))
         .insert_resource(SimulationTimeSec(1.0))
         .insert_resource(SimulationTimer(Timer::from_seconds(
             1.0,
             TimerMode::Repeating,
         )))
+        .insert_resource(DrawingHistory(vec![], 0))
         .insert_resource(Algorithm(AlgorithmType::JarvisMarch))
         .run();
 }
@@ -97,21 +97,55 @@ fn setup(mut commands: Commands) {
     });
 }
 
+use bevy::render::render_asset::RenderAssetUsages;
+use bevy::render::render_resource::PrimitiveTopology;
+
+macro_rules! draw_lines {
+    ($commands:expr, $meshes:expr, $materials:expr, $line:expr, Gizmo) => {
+        $commands.spawn((
+            MaterialMesh2dBundle {
+                mesh: Mesh2dHandle(
+                    $meshes.add(
+                        Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
+                            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, $line),
+                    ),
+                ),
+                material: $materials.add(Color::rgb(0.44, 0.44, 0.44)),
+                ..default()
+            },
+            Gizmo,
+        ));
+    };
+    ($commands:expr, $meshes:expr, $materials:expr, $line:expr, ConvexHull) => {
+        $commands.spawn((
+            MaterialMesh2dBundle {
+                mesh: Mesh2dHandle(
+                    $meshes.add(
+                        Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
+                            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, $line),
+                    ),
+                ),
+                material: $materials.add(Color::rgb(1.0, 1.0, 1.0)),
+                ..default()
+            },
+            ConvexHull,
+        ));
+    };
+}
+
 fn graphics_drawing(
     mut commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<ColorMaterial>>,
-    point_data: ResMut<PointData>,
-    drawing_in_progress: ResMut<DrawingInProgress>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     time: Res<Time>,
     mut simulation_timer: ResMut<SimulationTimer>,
-    algorithm: ResMut<Algorithm>,
     gizmo_query: Query<Entity, With<Gizmo>>,
+    mut drawing_history: ResMut<DrawingHistory>
 ) {
-    if point_data.0.is_empty() || !drawing_in_progress.0 {
-        despawn_entities(&mut commands, &gizmo_query);
-        return;
-    }
+    // if drawing_history.0.is_empty() {
+    //     despawn_entities(&mut commands, &gizmo_query);
+    //     return;
+    // }
 
     simulation_timer.0.tick(time.delta());
     if !simulation_timer.0.finished() {
@@ -120,27 +154,21 @@ fn graphics_drawing(
 
     despawn_entities(&mut commands, &gizmo_query);
 
-    match algorithm.0 {
-        AlgorithmType::JarvisMarch => {
-            jarvis_march(
-                &mut commands,
-                meshes,
-                materials,
-                point_data.0.clone(),
-                drawing_in_progress.1,
-                drawing_in_progress,
-            );
+    if drawing_history.0.len() == drawing_history.1 {
+        return;
+    } else {
+        for i in &drawing_history.0[drawing_history.1] {
+            match i {
+                LineType::PartOfHull(a, b) => {
+                    draw_lines!(commands, meshes, materials, vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]], ConvexHull);
+                },
+                LineType::Temporary(a, b) => {
+                    draw_lines!(commands, meshes, materials, vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]], Gizmo);
+                }
+            }
         }
-        AlgorithmType::KirkPatrickSeidel => {
-            kirk_patrick_seidel(
-                &mut commands,
-                meshes,
-                materials,
-                point_data.0.clone(),
-                drawing_in_progress.1,
-                drawing_in_progress,
-            );
-        }
+
+        drawing_history.1 += 1;
     }
 }
 
@@ -155,10 +183,10 @@ fn ui(
     mut point_data: ResMut<PointData>,
     mut distribution: ResMut<Distribution>,
     gizmo_query: Query<Entity, With<Gizmo>>,
-    mut drawing_in_progress: ResMut<DrawingInProgress>,
     mut simulation_time: ResMut<SimulationTimeSec>,
     mut simulation_timer: ResMut<SimulationTimer>,
     mut algorithm: ResMut<Algorithm>,
+    mut drawing_history: ResMut<DrawingHistory>
 ) {
     egui::Window::new("Inspector").show(contexts.ctx_mut(), |ui| {
         ui.label("Choose the number of points and the simulation time Δt.");
@@ -166,9 +194,6 @@ fn ui(
             despawn_entities(&mut commands, &point_query);
             despawn_entities(&mut commands, &convex_hull_query);
             despawn_entities(&mut commands, &gizmo_query);
-            drawing_in_progress.0 = false;
-            drawing_in_progress.1 = 0;
-            drawing_in_progress.2 = 0;
             point_data.0.clear();
 
             (0..number_of_points.0).for_each(|i| match distribution.0 {
@@ -179,7 +204,7 @@ fn ui(
                         return;
                     }
 
-                    point_data.0.push(Point::new(x, y));
+                    point_data.0.push(Vec2::new(x, y));
 
                     commands.spawn((
                         MaterialMesh2dBundle {
@@ -194,7 +219,7 @@ fn ui(
                 DistributionType::Random => {
                     let (x, y) = bounded_random(number_of_points.0);
                     let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
-                    point_data.0.push(Point::new(x, y));
+                    point_data.0.push(Vec2::new(x, y));
 
                     commands.spawn((
                         MaterialMesh2dBundle {
@@ -232,62 +257,9 @@ fn ui(
             ],
         );
 
-        // if ui.add(egui::Button::new("Generate World")).clicked() {
-        //     despawn_entities(&mut commands, &point_query);
-        //     despawn_entities(&mut commands, &convex_hull_query);
-        //     despawn_entities(&mut commands, &gizmo_query);
-        //     drawing_in_progress.0 = false;
-        //     drawing_in_progress.1 = 0;
-        //     drawing_in_progress.2 = 0;
-        //     point_data.0.clear();
-
-        //     (0..number_of_points.0).for_each(|i| match distribution.0 {
-        //         DistributionType::Fibonacci => {
-        //             let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
-        //             let (x, y) = fibonacci_circle(i);
-        //             if x.is_nan() || y.is_nan() {
-        //                 return;
-        //             }
-
-        //             point_data.0.push(Point::new(x, y));
-
-        //             commands.spawn((
-        //                 MaterialMesh2dBundle {
-        //                     mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
-        //                     material: materials.add(color),
-        //                     transform: Transform::from_xyz(x, y, 0.0),
-        //                     ..default()
-        //                 },
-        //                 PointSingle,
-        //             ));
-        //         }
-        //         DistributionType::Random => {
-        //             let (x, y) = bounded_random(number_of_points.0);
-        //             let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
-        //             point_data.0.push(Point::new(x, y));
-
-        //             commands.spawn((
-        //                 MaterialMesh2dBundle {
-        //                     mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
-        //                     material: materials.add(color),
-        //                     transform: Transform::from_xyz(x, y, 0.0),
-        //                     ..default()
-        //                 },
-        //                 PointSingle,
-        //             ));
-        //         }
-        //     })
-        // }
-
         ui.separator();
 
         ui.label("Select the algorithm type and click `Generate Mesh` to generate the convex hull based on the points");
-
-        // if drawing_in_progress.0 == true {
-        //     if ui.button("Pause").clicked() {
-        //         drawing_in_progress.0 = false;
-        //     }
-        // }
 
         create_combo_box(
             ui,
@@ -300,17 +272,16 @@ fn ui(
         );
 
         if ui.add(egui::Button::new("Generate Mesh")).clicked() {
+            drawing_history.1 = 0;
+            drawing_history.0.clear();
             despawn_entities(&mut commands, &convex_hull_query);
             despawn_entities(&mut commands, &gizmo_query);
-            drawing_in_progress.0 = true;
-            drawing_in_progress.1 = 0;
             let points = point_data.0.clone();
-            for (i, point) in points.iter().enumerate() {
-                if point.x < points[drawing_in_progress.1].x {
-                    drawing_in_progress.1 = i;
-                    drawing_in_progress.2 = i;
-                }
-            }
+            
+            match algorithm.0 {
+                AlgorithmType::JarvisMarch => jarvis_march(points, &mut drawing_history.0),
+                AlgorithmType::KirkPatrickSeidel => kirk_patrick_seidel(points, &mut drawing_history.0),
+            };
         }
 
         ui.separator();

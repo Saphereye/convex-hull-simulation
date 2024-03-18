@@ -73,7 +73,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, ui)
         .add_systems(Update, graphics_drawing)
-        .insert_resource(NumberOfPoints(10))
+        .insert_resource(NumberOfPoints(0))
         .insert_resource(PointData(vec![]))
         .insert_resource(Distribution(DistributionType::Fibonacci))
         .insert_resource(DrawingInProgress(false, 0, 0))
@@ -117,7 +117,7 @@ fn graphics_drawing(
     if !simulation_timer.0.finished() {
         return;
     }
-    
+
     despawn_entities(&mut commands, &gizmo_query);
 
     match algorithm.0 {
@@ -162,31 +162,7 @@ fn ui(
 ) {
     egui::Window::new("Inspector").show(contexts.ctx_mut(), |ui| {
         ui.label("Choose the number of points and the simulation time Δt.");
-        ui.add(egui::Slider::new(&mut number_of_points.0, 0..=100_000).text("Number of points"));
-        if ui
-            .add(egui::Slider::new(&mut simulation_time.0, 0.0..=1.0).text("Simulation time (s)"))
-            .changed()
-        {
-            simulation_timer
-                .0
-                .set_duration(std::time::Duration::from_secs_f32(simulation_time.0));
-        }
-
-        ui.separator();
-
-        ui.label("Select the distribution type and click `Generate world` to generate the points based on that");
-
-        create_combo_box(
-            ui,
-            "Select distribution type",
-            &mut distribution.0,
-            &[
-                ("Fibonacci", DistributionType::Fibonacci),
-                ("Random", DistributionType::Random),
-            ],
-        );
-
-        if ui.add(egui::Button::new("Generate World")).clicked() {
+        if ui.add(egui::Slider::new(&mut number_of_points.0, 0..=100).text("Number of points")).changed() {
             despawn_entities(&mut commands, &point_query);
             despawn_entities(&mut commands, &convex_hull_query);
             despawn_entities(&mut commands, &gizmo_query);
@@ -232,6 +208,76 @@ fn ui(
                 }
             })
         }
+        if ui
+            .add(egui::Slider::new(&mut simulation_time.0, 0.0..=1.0).text("Simulation time (s)"))
+            .changed()
+        {
+            simulation_timer
+                .0
+                .set_duration(std::time::Duration::from_secs_f32(simulation_time.0));
+
+        }
+
+        ui.separator();
+
+        ui.label("Select the distribution type and click `Generate world` to generate the points based on that");
+
+        create_combo_box(
+            ui,
+            "Select distribution type",
+            &mut distribution.0,
+            &[
+                ("Fibonacci", DistributionType::Fibonacci),
+                ("Random", DistributionType::Random),
+            ],
+        );
+
+        // if ui.add(egui::Button::new("Generate World")).clicked() {
+        //     despawn_entities(&mut commands, &point_query);
+        //     despawn_entities(&mut commands, &convex_hull_query);
+        //     despawn_entities(&mut commands, &gizmo_query);
+        //     drawing_in_progress.0 = false;
+        //     drawing_in_progress.1 = 0;
+        //     drawing_in_progress.2 = 0;
+        //     point_data.0.clear();
+
+        //     (0..number_of_points.0).for_each(|i| match distribution.0 {
+        //         DistributionType::Fibonacci => {
+        //             let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
+        //             let (x, y) = fibonacci_circle(i);
+        //             if x.is_nan() || y.is_nan() {
+        //                 return;
+        //             }
+
+        //             point_data.0.push(Point::new(x, y));
+
+        //             commands.spawn((
+        //                 MaterialMesh2dBundle {
+        //                     mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
+        //                     material: materials.add(color),
+        //                     transform: Transform::from_xyz(x, y, 0.0),
+        //                     ..default()
+        //                 },
+        //                 PointSingle,
+        //             ));
+        //         }
+        //         DistributionType::Random => {
+        //             let (x, y) = bounded_random(number_of_points.0);
+        //             let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
+        //             point_data.0.push(Point::new(x, y));
+
+        //             commands.spawn((
+        //                 MaterialMesh2dBundle {
+        //                     mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
+        //                     material: materials.add(color),
+        //                     transform: Transform::from_xyz(x, y, 0.0),
+        //                     ..default()
+        //                 },
+        //                 PointSingle,
+        //             ));
+        //         }
+        //     })
+        // }
 
         ui.separator();
 

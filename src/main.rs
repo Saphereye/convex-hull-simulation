@@ -34,7 +34,7 @@ struct NumberOfPoints(usize);
 struct SimulationTimeSec(f32);
 
 #[derive(Resource, Debug)]
-struct PointData(Vec<Vec2>);
+struct PointData(Vec<Point>);
 
 #[derive(Resource)]
 struct SimulationTimer(Timer);
@@ -117,6 +117,7 @@ fn graphics_drawing(
     if !simulation_timer.0.finished() {
         return;
     }
+    
     despawn_entities(&mut commands, &gizmo_query);
 
     match algorithm.0 {
@@ -202,7 +203,7 @@ fn ui(
                         return;
                     }
 
-                    point_data.0.push(Vec2::new(x, y));
+                    point_data.0.push(Point::new(x, y));
 
                     commands.spawn((
                         MaterialMesh2dBundle {
@@ -217,7 +218,7 @@ fn ui(
                 DistributionType::Random => {
                     let (x, y) = bounded_random(number_of_points.0);
                     let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
-                    point_data.0.push(Vec2::new(x, y));
+                    point_data.0.push(Point::new(x, y));
 
                     commands.spawn((
                         MaterialMesh2dBundle {
@@ -235,6 +236,13 @@ fn ui(
         ui.separator();
 
         ui.label("Select the algorithm type and click `Generate Mesh` to generate the convex hull based on the points");
+
+        // if drawing_in_progress.0 == true {
+        //     if ui.button("Pause").clicked() {
+        //         drawing_in_progress.0 = false;
+        //     }
+        // }
+
         create_combo_box(
             ui,
             "Select Algorithm Type",
@@ -286,7 +294,7 @@ fn ui(
                         ui.label("Divyateja Pasupuleti");
                     });
                     row.col(|ui| {
-                        ui.label("2021A7PS1511H");
+                        ui.label("2021A7PS0075H");
                     });
                 });
 
@@ -304,7 +312,7 @@ fn ui(
                         ui.label("Kumarasamy Chelliah");
                     });
                     row.col(|ui| {
-                        ui.label("2021A7PS1511H");
+                        ui.label("2021A7PS0096H");
                     });
                 });
 

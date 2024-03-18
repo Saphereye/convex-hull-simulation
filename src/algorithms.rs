@@ -1,17 +1,14 @@
 use std::cmp::Ordering;
 use std::hash::Hash;
 
-use bevy::render::render_asset::RenderAssetUsages;
-use bevy::render::render_resource::PrimitiveTopology;
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
 use std::collections::HashSet;
 
-/// (is_drawing, number of iterations reached, initial state of the drawing)
 #[derive(Resource)]
-pub struct DrawingInProgress(pub bool, pub usize, pub usize);
+pub struct DrawingHistory(pub Vec<Vec<LineType>>, pub usize); // history, current
 
 #[derive(Component)]
 pub struct Gizmo;
@@ -28,63 +25,9 @@ pub enum AlgorithmType {
 #[derive(Resource)]
 pub struct Algorithm(pub AlgorithmType);
 
-#[derive(Debug, PartialOrd, Copy, Clone)]
-pub struct Point {
-    pub x: f32,
-    pub y: f32,
-}
-impl Point {
-    pub fn new(x: f32, y: f32) -> Self {
-        Point { x, y }
-    }
-}
-
-impl Hash for Point {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.x.to_bits().hash(state);
-        self.y.to_bits().hash(state);
-    }
-}
-
-impl PartialEq for Point {
-    fn eq(&self, other: &Self) -> bool {
-        (self.x - other.x) < f32::EPSILON && (self.y - other.y) < f32::EPSILON
-    }
-}
-
-impl Eq for Point {}
-
-macro_rules! draw_lines {
-    ($commands:expr, $meshes:expr, $materials:expr, $line:expr, Gizmo) => {
-        $commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: Mesh2dHandle(
-                    $meshes.add(
-                        Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
-                            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, $line),
-                    ),
-                ),
-                material: $materials.add(Color::rgb(0.44, 0.44, 0.44)),
-                ..default()
-            },
-            Gizmo,
-        ));
-    };
-    ($commands:expr, $meshes:expr, $materials:expr, $line:expr, ConvexHull) => {
-        $commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: Mesh2dHandle(
-                    $meshes.add(
-                        Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
-                            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, $line),
-                    ),
-                ),
-                material: $materials.add(Color::rgb(1.0, 1.0, 1.0)),
-                ..default()
-            },
-            ConvexHull,
-        ));
-    };
+pub enum LineType {
+    PartOfHull(Vec2, Vec2),
+    Temporary(Vec2, Vec2),
 }
 
 /// # Implementation of the [Jarvis March](https://en.wikipedia.org/wiki/Gift_wrapping_algorithm) algorithm
@@ -110,301 +53,122 @@ macro_rules! draw_lines {
 ///         pointOnHull = endpoint
 ///     until endpoint = P[0]      // wrapped around to first hull point
 /// ```
-pub fn jarvis_march(
-    commands: &mut Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    points: Vec<Point>,
-    current: usize,
-    mut drawing_in_progress: ResMut<DrawingInProgress>,
-) {
-    let mut current = current;
-    let previous_point = [points[current].x, points[current].y, 0.0];
-    let mut next = (current + 1) % points.len();
-    for (i, point) in points.iter().enumerate() {
-        draw_lines!(
-            commands,
-            meshes,
-            materials,
-            vec![
-                [previous_point[0], previous_point[1], 0.0],
-                [point.x, point.y, 0.0],
-            ],
-            Gizmo
-        );
+pub fn jarvis_march(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
+    let n = points.len();
+    if n < 3 {
+        return Vec::new();
+    }
 
-        if i != current && i != next {
-            let cross = (point.x - points[current].x)
-                * (points[next].y - points[current].y)
-                - (point.y - points[current].y)
-                    * (points[next].x - points[current].x);
-            if cross < 0.0 {
-                next = i;
+    let mut hull = Vec::new();
+
+    // Find the leftmost point
+    let mut l = 0;
+    for i in 1..n {
+        if points[i].x < points[l].x {
+            l = i;
+        }
+    }
+
+    // Start from leftmost point, keep moving counterclockwise
+    // until reach the start point again
+    let mut p = l;
+    let mut q;
+    loop {
+        let mut temp = vec![];
+
+        // Add current point to result
+        hull.push(points[p]);
+
+        // Search for a point 'q' such that orientation(p, x, q) is
+        // counterclockwise for all points 'x'
+        q = (p + 1) % n;
+        for r in 0..n {
+            // If r is more counterclockwise than current q, then update q
+            if orientation(&points[p], &points[r], &points[q]) == 2 {
+                q = r;
+            }
+
+            // Add line from points[p] to points[q] to drawing history
+            // if it's not already part of the hull
+            if !hull.contains(&points[r]) {
+                temp.push(LineType::Temporary(points[p], points[r]));
             }
         }
-    }
 
-    draw_lines!(
-        commands,
-        meshes,
-        materials,
-        vec![
-            [previous_point[0], previous_point[1], 0.0],
-            [points[next].x, points[next].y, 0.0],
-        ],
-        ConvexHull
-    );
+        temp.push(LineType::PartOfHull(points[p], points[q]));
 
-    current = next;
-    drawing_in_progress.1 = current;
-    if current == drawing_in_progress.2 {
-        drawing_in_progress.0 = false;
-        drawing_in_progress.1 = 0;
-    }
-}
+        // Now q is the most counterclockwise with respect to p
+        // Set p as q for next iteration, so that q is added to result 'hull'
+        p = q;
 
-fn connect(lower: Point, upper: Point, points: Vec<Point>) -> Vec<Point> {
-    if lower == upper {
-        return vec![lower];
-    }
-    let max_left = quickselect(
-        points.clone(),
-        (points.len() / 2).saturating_sub(1),
-        0,
-        points.len() - 1,
-    );
-    let min_right = quickselect(points.clone(), points.len() / 2, 0, points.len() - 1);
-    let (left, right) = bridge(
-        points.clone().into_iter().collect(),
-        (max_left.x + min_right.x) / 2.0,
-    );
-    let points_left: Vec<Point> = vec![left]
-        .iter()
-        .cloned()
-        .chain(
-            points
-                .iter()
-                .filter(|&point| point.x < left.x)
-                .cloned(),
-        )
-        .collect();
-    let points_right: Vec<Point> = vec![right]
-        .iter()
-        .cloned()
-        .chain(
-            points
-                .iter()
-                .filter(|&point| point.x > right.x)
-                .cloned(),
-        )
-        .collect();
-    let mut result = connect(lower, left, points_left);
-    result.extend(connect(right, upper, points_right));
-    result
-}
-
-fn quickselect<T: PartialOrd + Copy>(mut points: Vec<T>, index: usize, lo: usize, hi: usize) -> T {
-    if lo == hi {
-        return points[lo];
-    }
-    let pivot = lo + (hi - lo) / 2;
-    points.swap(pivot, lo);
-    let mut cur = lo;
-    for run in lo + 1..=hi {
-        if points[run] < points[lo] {
-            cur += 1;
-            points.swap(cur, run);
+        // While we don't come to first point
+        if p == l {
+            break;
         }
+
+        drawing_history.push(temp);
     }
-    points.swap(cur, lo);
-    if index < cur {
-        quickselect(points, index, lo, cur - 1)
-    } else if index > cur {
-        quickselect(points, index, cur + 1, hi)
-    } else {
-        points[cur]
-    }
+
+    // // Add final hull lines to drawing history
+    // for i in 0..hull.len() - 1 {
+    //     drawing_history.push(vec![LineType::PartOfHull(hull[i], hull[i + 1])]);
+    // }
+    // Connect the last point with the first one
+    drawing_history.push(vec![LineType::PartOfHull(hull[hull.len() - 1], hull[0])]);
+
+    hull
 }
 
-fn bridge(points: HashSet<Point>, vertical_line: f32) -> (Point, Point) {
-    let mut candidates = HashSet::new();
-    if points.len() == 2 {
-        let points_vec: Vec<_> = points.into_iter().collect();
-        return (points_vec[0], points_vec[1]);
-    }
-    let mut pairs = Vec::new();
-    let mut modify_s = points.clone();
+// To find orientation of ordered triplet (p, q, r).
+// The function returns following values
+// 0 --> p, q and r are colinear
+// 1 --> Clockwise
+// 2 --> Counterclockwise
+fn orientation(p: &Vec2, q: &Vec2, r: &Vec2) -> i32 {
+    let val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
 
-    while modify_s.len() >= 2 {
-        let p1 = modify_s.iter().next().cloned().unwrap();
-        modify_s.remove(&p1);
-        let p2 = modify_s.iter().next().cloned().unwrap();
-        modify_s.remove(&p2);
-        pairs.push((p1, p2));
+    if val == 0.0 {
+        return 0; // colinear
     }
-
-    if modify_s.len() == 1 {
-        candidates.insert(modify_s.iter().next().cloned().unwrap());
+    if val > 0.0 {
+        return 1; // clockwise
     }
-
-    let mut slopes = Vec::new();
-    let mut new_pairs = Vec::new();
-    for (pi, pj) in pairs.iter() {
-        if pi.x == pj.x {
-            candidates.insert(if pi.y > pj.y { *pi } else { *pj });
-        } else {
-            slopes.push((pi.y - pj.y) / (pi.x - pj.x));
-            new_pairs.push((*pi, *pj)); // Keep the pair if x values are not equal
-        }
-    }
-    pairs = new_pairs; // Update pairs vector with the filtered pairs
-
-    slopes.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-    let median_index = (slopes.len() / 2).saturating_sub(if slopes.len() % 2 == 0 { 1 } else { 0 });
-    let median_slope = quickselect(slopes.clone(), median_index, 0, slopes.len().saturating_sub(1));
-    let mut small = Vec::new();
-    let mut equal = Vec::new();
-    let mut large = Vec::new();
-    for (i, slope) in slopes.iter().enumerate() {
-        if *slope < median_slope {
-            small.push(pairs[i]);
-        } else if *slope == median_slope {
-            equal.push(pairs[i]);
-        } else {
-            large.push(pairs[i]);
-        }
-    }
-    let max_slope = points
-        .iter()
-        .map(|point| point.y - median_slope as f32 * point.x)
-        .fold(f32::NEG_INFINITY, |a, b| a.max(b));
-    let max_set: Vec<Point> = points
-        .iter()
-        .filter(|&point| point.y - median_slope as f32 * point.x == max_slope)
-        .cloned()
-        .collect();
-    let left = max_set
-        .iter()
-        .min_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
-        .unwrap()
-        .clone();
-    let right = max_set
-        .iter()
-        .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
-        .unwrap()
-        .clone();
-    if left.x <= vertical_line && right.x > vertical_line {
-        return (left, right);
-    } else if right.x <= vertical_line {
-        candidates.extend(
-            large
-                .iter()
-                .chain(equal.iter())
-                .map(|&(p, _)| p)
-                .collect::<Vec<Point>>(),
-        );
-        candidates.extend(
-            small
-                .iter()
-                .flat_map(|&(p, q)| vec![p, q])
-                .collect::<Vec<Point>>(),
-        );
-    } else {
-        candidates.extend(
-            small
-                .iter()
-                .flat_map(|&(p, q)| vec![p, q])
-                .collect::<Vec<Point>>(),
-        );
-        candidates.extend(
-            large
-                .iter()
-                .chain(equal.iter())
-                .map(|&(p, _)| p)
-                .collect::<Vec<Point>>(),
-        );
-    }
-    bridge(candidates, vertical_line)
-}
-
-fn flipped(points: Vec<Point>) -> Vec<Point> {
-    points
-        .iter()
-        .map(|&point| Point::new(-point.x, -point.y))
-        .collect()
+    return 2; // counterclockwise
 }
 
 pub fn kirk_patrick_seidel(
-    commands: &mut Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    points: Vec<Point>,
-    _current: usize,
-    mut drawing_in_progress: ResMut<DrawingInProgress>,
-) {
-    // let local_drawing_progress = 0;
+    points: Vec<Vec2>,
+    drawing_history: &mut Vec<Vec<LineType>>,
+) -> Vec<Vec2> {
+    todo!("Kirk Patrick Seidel algorithm is not implemented yet");
+}
 
-    // Get upper hull
-    let mut points = points;
-    points.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
-    let lower = *points.first().unwrap();
-    let upper = *points.last().unwrap();
-    let filtered_points: Vec<Point> = points
-        .iter()
-        .filter(|&point| (lower.x < point.x) && (point.x < upper.x))
-        .cloned()
-        .collect();
-    let mut upper_hull = connect(lower, upper, filtered_points);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    draw_lines!(
-        commands,
-        meshes,
-        materials,
-        upper_hull
-            .iter()
-            .map(|point| [point.x, point.y, 0.0])
-            .collect::<Vec<[f32; 3]>>(),
-        ConvexHull
-    );
+    #[test]
+    fn test_jarvis_march() {
+        let points = vec![
+            Vec2::new(0.0, 3.0),
+            Vec2::new(2.0, 2.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(2.0, 1.0),
+            Vec2::new(3.0, 0.0),
+            Vec2::new(0.0, 0.0),
+            Vec2::new(3.0, 3.0),
+        ];
 
-    // Get lower hull
-    let mut points = flipped(points);
-    points.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
-    let lower = *points.first().unwrap();
-    let upper = *points.last().unwrap();
-    let filtered_points = points
-        .iter()
-        .filter(|&point| (lower.x < point.x) && (point.x < upper.x))
-        .cloned()
-        .collect();
-    let mut lower_hull = flipped(connect(lower, upper, filtered_points));
+        let mut drawing_history = Vec::new();
+        let hull = jarvis_march(points, &mut drawing_history);
 
-    if Some(lower_hull.last()) == Some(upper_hull.first()) {
-        upper_hull.pop();
+        let expected_hull = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(3.0, 0.0),
+            Vec2::new(3.0, 3.0),
+            Vec2::new(0.0, 3.0),
+        ];
+
+        assert_eq!(hull, expected_hull);
     }
-
-    if Some(lower_hull.first()) == Some(upper_hull.last()) {
-        lower_hull.pop();
-    }
-
-    let mut convex_hull = upper_hull;
-    convex_hull.extend(lower_hull);
-
-    draw_lines!(
-        commands,
-        meshes,
-        materials,
-        convex_hull
-            .iter()
-            .map(|point| [point.x, point.y, 0.0])
-            .collect::<Vec<[f32; 3]>>(),
-        ConvexHull
-    );
-
-    // Update current in loop
-    // drawing_in_progress.1 = current;
-    // if current == drawing_in_progress.2 {
-    drawing_in_progress.0 = false;
-    drawing_in_progress.1 = 0;
-    // }
 }

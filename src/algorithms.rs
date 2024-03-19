@@ -1,11 +1,4 @@
-use std::cmp::Ordering;
-use std::hash::Hash;
-
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-};
-use std::collections::HashSet;
+use bevy::prelude::*;
 
 #[derive(Resource)]
 pub struct DrawingHistory(pub Vec<Vec<LineType>>, pub usize); // history, current
@@ -28,6 +21,7 @@ pub struct Algorithm(pub AlgorithmType);
 pub enum LineType {
     PartOfHull(Vec2, Vec2),
     Temporary(Vec2, Vec2),
+    TextComment(String),
 }
 
 /// # Implementation of the [Jarvis March](https://en.wikipedia.org/wiki/Gift_wrapping_algorithm) algorithm
@@ -106,15 +100,11 @@ pub fn jarvis_march(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>)
             break;
         }
 
+        temp.push(LineType::TextComment(format!("Checking all points starting from {} that are least counter clockwise", points[p].to_string())));
         drawing_history.push(temp);
     }
 
-    // // Add final hull lines to drawing history
-    // for i in 0..hull.len() - 1 {
-    //     drawing_history.push(vec![LineType::PartOfHull(hull[i], hull[i + 1])]);
-    // }
-    // Connect the last point with the first one
-    drawing_history.push(vec![LineType::PartOfHull(hull[hull.len() - 1], hull[0])]);
+    drawing_history.push(vec![LineType::PartOfHull(hull[hull.len() - 1], hull[0]), LineType::TextComment("Found all points of the Hull".to_string())]);
 
     hull
 }
@@ -163,10 +153,10 @@ mod tests {
         let hull = jarvis_march(points, &mut drawing_history);
 
         let expected_hull = vec![
+            Vec2::new(0.0, 3.0),
             Vec2::new(0.0, 0.0),
             Vec2::new(3.0, 0.0),
             Vec2::new(3.0, 3.0),
-            Vec2::new(0.0, 3.0),
         ];
 
         assert_eq!(hull, expected_hull);

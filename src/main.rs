@@ -11,10 +11,9 @@
 use std::fmt::Debug;
 
 use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}
 };
-use bevy_egui::{egui, EguiContexts, EguiPlugin};
+use bevy_egui::{egui::{self}, EguiContexts, EguiPlugin};
 use bevy_pancam::{PanCam, PanCamPlugin};
 use egui_extras::{Column, TableBuilder};
 
@@ -86,6 +85,12 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
+struct ColorText;
+
+#[derive(Resource)]
+struct TextComment(pub String);
+
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default()).insert(PanCam {
         grab_buttons: vec![MouseButton::Left, MouseButton::Middle], // which buttons should drag the camera
@@ -140,12 +145,13 @@ fn graphics_drawing(
     time: Res<Time>,
     mut simulation_timer: ResMut<SimulationTimer>,
     gizmo_query: Query<Entity, With<Gizmo>>,
+    text_query: Query<Entity, With<ColorText>>,
     mut drawing_history: ResMut<DrawingHistory>
 ) {
-    // if drawing_history.0.is_empty() {
-    //     despawn_entities(&mut commands, &gizmo_query);
-    //     return;
-    // }
+    if drawing_history.0.is_empty() || drawing_history.0.len() == drawing_history.1 {
+        // despawn_entities(&mut commands, &gizmo_query);
+        return;
+    }
 
     simulation_timer.0.tick(time.delta());
     if !simulation_timer.0.finished() {
@@ -153,23 +159,39 @@ fn graphics_drawing(
     }
 
     despawn_entities(&mut commands, &gizmo_query);
+    despawn_entities(&mut commands, &text_query);
 
-    if drawing_history.0.len() == drawing_history.1 {
-        return;
-    } else {
-        for i in &drawing_history.0[drawing_history.1] {
-            match i {
-                LineType::PartOfHull(a, b) => {
-                    draw_lines!(commands, meshes, materials, vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]], ConvexHull);
-                },
-                LineType::Temporary(a, b) => {
-                    draw_lines!(commands, meshes, materials, vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]], Gizmo);
-                }
+    for i in &drawing_history.0[drawing_history.1] {
+        match i {
+            LineType::PartOfHull(a, b) => {
+                draw_lines!(commands, meshes, materials, vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]], ConvexHull);
+            },
+            LineType::Temporary(a, b) => {
+                draw_lines!(commands, meshes, materials, vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]], Gizmo);
+            }
+            LineType::TextComment(comment) => {
+                commands.spawn((
+                    TextBundle::from_section(
+                        comment,
+                        TextStyle {
+                            font_size: 20.0,
+                            ..default()
+                        },
+                    )
+                    .with_text_justify(JustifyText::Center)
+                    .with_style(Style {
+                        position_type: PositionType::Absolute,
+                        bottom: Val::Px(5.0),
+                        right: Val::Px(5.0),
+                        ..default()
+                    }),
+                    ColorText,
+                ));
             }
         }
-
-        drawing_history.1 += 1;
     }
+
+    drawing_history.1 += 1;
 }
 
 fn ui(
@@ -186,15 +208,43 @@ fn ui(
     mut simulation_time: ResMut<SimulationTimeSec>,
     mut simulation_timer: ResMut<SimulationTimer>,
     mut algorithm: ResMut<Algorithm>,
-    mut drawing_history: ResMut<DrawingHistory>
+    mut drawing_history: ResMut<DrawingHistory>,
+    text_query: Query<Entity, With<ColorText>>,
 ) {
     egui::Window::new("Inspector").show(contexts.ctx_mut(), |ui| {
         ui.label("Choose the number of points and the simulation time Δt.");
-        if ui.add(egui::Slider::new(&mut number_of_points.0, 0..=100).text("Number of points")).changed() {
+        ui.add(egui::Slider::new(&mut number_of_points.0, 0..=10_000).text("Number of points"));
+        if ui
+            .add(egui::Slider::new(&mut simulation_time.0, 0.0..=10.0).text("Simulation time (s)"))
+            .changed()
+        {
+            simulation_timer
+                .0
+                .set_duration(std::time::Duration::from_secs_f32(simulation_time.0));
+
+        }
+
+        ui.separator();
+
+        ui.label("Select the distribution type and click `Generate world` to generate the points based on that");
+
+        create_combo_box(
+            ui,
+            "Select distribution type",
+            &mut distribution.0,
+            &[
+                ("Fibonacci", DistributionType::Fibonacci),
+                ("Random", DistributionType::Random),
+            ],
+        );
+
+        if ui.button("Generate World").clicked() {
             despawn_entities(&mut commands, &point_query);
             despawn_entities(&mut commands, &convex_hull_query);
             despawn_entities(&mut commands, &gizmo_query);
+            despawn_entities(&mut commands, &text_query);
             point_data.0.clear();
+            drawing_history.0.clear();
 
             (0..number_of_points.0).for_each(|i| match distribution.0 {
                 DistributionType::Fibonacci => {
@@ -233,29 +283,6 @@ fn ui(
                 }
             })
         }
-        if ui
-            .add(egui::Slider::new(&mut simulation_time.0, 0.0..=1.0).text("Simulation time (s)"))
-            .changed()
-        {
-            simulation_timer
-                .0
-                .set_duration(std::time::Duration::from_secs_f32(simulation_time.0));
-
-        }
-
-        ui.separator();
-
-        ui.label("Select the distribution type and click `Generate world` to generate the points based on that");
-
-        create_combo_box(
-            ui,
-            "Select distribution type",
-            &mut distribution.0,
-            &[
-                ("Fibonacci", DistributionType::Fibonacci),
-                ("Random", DistributionType::Random),
-            ],
-        );
 
         ui.separator();
 
@@ -320,7 +347,7 @@ fn ui(
                         ui.label("Manan Gupta");
                     });
                     row.col(|ui| {
-                        ui.label("2021A7PS1511H");
+                        ui.label("2021A7PS2091H");
                     });
                 });
 

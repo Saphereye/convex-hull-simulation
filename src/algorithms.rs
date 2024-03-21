@@ -13,6 +13,7 @@ pub struct ConvexHull;
 pub enum AlgorithmType {
     JarvisMarch,
     KirkPatrickSeidel,
+    GrahamScan,
 }
 
 #[derive(Resource)]
@@ -24,7 +25,7 @@ pub enum LineType {
     TextComment(String),
 }
 
-/// # Implementation of the [Jarvis March](https://en.wikipedia.org/wiki/Gift_wrapping_algorithm) algorithm
+/// # Implementation of the [Jarvis March](https://en.wikipedia.org/wiki/Gift_wrapping_algorithm) algorithm (Gift-Wrapping algorithm)
 /// This algorithm is used to calculate the convex hull of given set of points.
 /// It has a `O(nh)` time complexity, where `n` is the number of points and `h` is the number of points on the convex hull.
 /// <p><a href="https://commons.wikimedia.org/wiki/File:Animation_depicting_the_gift_wrapping_algorithm.gif#/media/File:Animation_depicting_the_gift_wrapping_algorithm.gif"><img src="https://upload.wikimedia.org/wikipedia/commons/9/9c/Animation_depicting_the_gift_wrapping_algorithm.gif" alt="Animation depicting the gift wrapping algorithm.gif" height="401" width="401"></a><br></p>
@@ -47,6 +48,13 @@ pub enum LineType {
 ///         pointOnHull = endpoint
 ///     until endpoint = P[0]      // wrapped around to first hull point
 /// ```
+/// ## Analysis
+/// First we find the smallest $x$ coordinate of all points, this takes $O(n)$ time to do. Then We
+/// compare polar angles of each point from current point and choose the point with least angle.
+/// This repeated $O(h)$ times to yield the hull.
+///
+/// Thus this algorithm yield the hull in $O(nh)$ time, wher $n$ is total number of points and $h$
+/// is number of point on the hull.
 pub fn jarvis_march(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
     let n = points.len();
     if n < 3 {
@@ -78,7 +86,7 @@ pub fn jarvis_march(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>)
         q = (p + 1) % n;
         for r in 0..n {
             // If r is more counterclockwise than current q, then update q
-            if orientation(&points[p], &points[r], &points[q]) == 2 {
+            if let Orientation::Counterclockwise = orientation(&points[p], &points[r], &points[q]) {
                 q = r;
             }
 
@@ -100,32 +108,136 @@ pub fn jarvis_march(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>)
             break;
         }
 
-        temp.push(LineType::TextComment(format!("Checking all points starting from {} that are least counter clockwise", points[p].to_string())));
+        temp.push(LineType::TextComment(format!(
+            "Checking all points starting from {} that are least counter clockwise",
+            points[p].to_string()
+        )));
         drawing_history.push(temp);
     }
 
-    drawing_history.push(vec![LineType::PartOfHull(hull[hull.len() - 1], hull[0]), LineType::TextComment("Found all points of the Hull".to_string())]);
+    drawing_history.push(vec![
+        LineType::PartOfHull(hull[hull.len() - 1], hull[0]),
+        LineType::TextComment("Found all points of the Hull".to_string()),
+    ]);
 
     hull
 }
 
-// To find orientation of ordered triplet (p, q, r).
-// The function returns following values
-// 0 --> p, q and r are colinear
-// 1 --> Clockwise
-// 2 --> Counterclockwise
-fn orientation(p: &Vec2, q: &Vec2, r: &Vec2) -> i32 {
+enum Orientation {
+    Clockwise,
+    Counterclockwise,
+    Colinear,
+}
+
+fn orientation(p: &Vec2, q: &Vec2, r: &Vec2) -> Orientation {
     let val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
 
     if val == 0.0 {
-        return 0; // colinear
+        return Orientation::Colinear;
     }
     if val > 0.0 {
-        return 1; // clockwise
+        return Orientation::Clockwise;
     }
-    return 2; // counterclockwise
+
+    Orientation::Counterclockwise
 }
 
+pub fn graham_scan(mut points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
+    if points.len() < 3 {
+        return Vec::new();
+    }
+
+    // sort points by 'angle'
+    // We can take points[0] as reference point
+    let first_point = points[0];
+    points.sort_by(|a, b| {
+        let a_angle = (a.y - first_point.y).atan2(a.x - first_point.x);
+        let b_angle = (b.y - first_point.y).atan2(b.x - first_point.x);
+        a_angle.partial_cmp(&b_angle).unwrap()
+    });
+
+    let mut hull = vec![first_point];
+    let mut current_index = 1;
+
+    while current_index + 1 != points.len() - 1 {
+        let previous = points[current_index - 1];
+        let current = points[current_index];
+        let next = points[current_index + 1];
+
+        match orientation(&previous, &current, &next) {
+            Orientation::Counterclockwise => {
+                // Add line from previous to current to drawing history
+                hull.push(points[current_index]);
+                drawing_history.push(vec![LineType::Temporary(previous, current)]);
+                current_index += 1;
+            }
+            Orientation::Clockwise => {
+                // Remove current from points
+                points.remove(current_index);
+            }
+            Orientation::Colinear => {
+                // Remove current from points
+                points.remove(current_index);
+            }
+        }
+    }
+
+    points
+}
+
+/// Implementation of the [Kirkpatrick Seidel](https://graphics.stanford.edu/courses/cs268-16-fall/Notes/KirkSeidel.pdf) Algorithm
+/// 
+/// ![](https://d3i71xaburhd42.cloudfront.net/9565745ce8b6c2114072e9620981fb97ed38e471/2-Figure1-1.png)
+/// 
+/// ## Pseudocode
+/// ```pseudocode
+/// Algorithm UpperHull(P)
+/// 0. if |P| ≤ 2 then return the obvious answer
+/// 1. else begin
+/// 2. Compute the median xmed of x-coordinates of points in P.
+/// 3. Partition P into two sets L and R each of size about n/2 around the median xmed .
+/// 4. Find the upper bridge pq of L and R, p∈L, and q∈R
+/// 5. L′ ← { r ∈L x(r) ≤ x(p) }
+/// 6. R′ ← { r ∈R x(r) ≥ x(q) }
+/// 7. LUH ← UpperHall(L′)
+/// 8. RUH ← UpperHall(R′)
+/// 9. return the concatenated list LUH, pq, RUH as the upper hull of P.
+/// 10. end
+/// ```
+/// 
+/// ## Analysis
+/// This is a divide-&-conquer algorithm. The key step is the computation of the upper
+/// bridge which is based on the prune-&-search technique. This step can be done in O(n) time. We also know that step
+/// 2 can be done in $O(n)$ time by the linear time median finding algorithm. Hence, steps 3-6
+/// can be done in $O(n)$ time. For the purposes of analyzing algorithm `UpperHall(P)`, let us
+/// assume the upper hull of $P$ consists of $h$ edges. Our analysis will use both parameters n
+/// (input size) and $h$ (output size). Let $T(n, h)$ denote the worst-case time complexity of the
+/// algorithm. Suppose $\text{LUH}$ and $\text{RUH}$ in steps 7 and 8 consist of $h1$ and $h2$ edges, respectively. Since $|L'| ≤ |L|$ and $|R'| ≤ |R|$, the two recursive calls in steps 7 and 8 take time
+/// $T(\frac{n}2, h_1)$ and $T(\frac{n}2, h_2)$ time. (Note that $h = 1 + h1 + h2$. Hence, $h2 = h − 1 − h1$.)
+/// Therefore, the recurrence that describes the worst-case time complexity of the algorithm is
+/// $$
+/// T(n, h) = O(n) + max_{h1} \{ T(\frac{n}{2}, h_1) + T(\frac{n}{2}, h-1-h_1)\}
+/// $$
+/// if $h > 2$, otherwise $T(n, h) = O(n)$.
+/// 
+/// Suppose the two occurences of $O(n)$ in the above recurrence are at most $cn$,
+/// where $c$ is a suitably large constant. We will show by induction on $h$ that
+/// $T(n, h) \leq cn \log(h)$ for all $n$ and $h \leq 2$. For the base case where $h = 2$,
+/// $T(n, h) \leq cn \leq cn\log(2) = cn \log(h)$. For the inductive case,
+/// 
+/// $T(n, h)$
+/// 
+/// $\leq cn + max_{h1} \{ c\frac{n}{2}\log(h_1) + c\frac{n}{2}\log(h-1-h_1)\}$
+/// 
+/// $= cn + c\frac{n}{2}max_{h1} \log(h_1 (h - 1 - h_1))$
+/// 
+/// $\leq cn + c\frac{n}{2}\log(\frac{h}{2} \cdot \frac{h}{2})$
+/// 
+/// $= cn + c\frac{n}{2}2\log(\frac{h}2)$
+/// 
+/// $= cn\log(h)$
+/// 
+/// Thus we can claim runtime of kirpatrick seidel algorithm to be $O(n\log(h))$.
 pub fn kirk_patrick_seidel(
     points: Vec<Vec2>,
     drawing_history: &mut Vec<Vec<LineType>>,
@@ -157,6 +269,56 @@ mod tests {
             Vec2::new(0.0, 0.0),
             Vec2::new(3.0, 0.0),
             Vec2::new(3.0, 3.0),
+        ];
+
+        assert_eq!(hull, expected_hull);
+    }
+
+    #[test]
+    fn test_graham_scan() {
+        let points = vec![
+            Vec2::new(0.0, 3.0),
+            Vec2::new(2.0, 2.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(2.0, 1.0),
+            Vec2::new(3.0, 0.0),
+            Vec2::new(0.0, 0.0),
+            Vec2::new(3.0, 3.0),
+        ];
+
+        let mut drawing_history = Vec::new();
+        let hull = graham_scan(points, &mut drawing_history);
+
+        let expected_hull = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(3.0, 0.0),
+            Vec2::new(3.0, 3.0),
+            Vec2::new(0.0, 3.0),
+        ];
+
+        assert_eq!(hull, expected_hull);
+    }
+
+    #[test]
+    fn test_kirk_patrick_seidel() {
+        let points = vec![
+            Vec2::new(0.0, 3.0),
+            Vec2::new(2.0, 2.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(2.0, 1.0),
+            Vec2::new(3.0, 0.0),
+            Vec2::new(0.0, 0.0),
+            Vec2::new(3.0, 3.0),
+        ];
+
+        let mut drawing_history = Vec::new();
+        let hull: Vec<Vec2> = kirk_patrick_seidel(points, &mut drawing_history);
+
+        let expected_hull = vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(3.0, 0.0),
+            Vec2::new(3.0, 3.0),
+            Vec2::new(0.0, 3.0),
         ];
 
         assert_eq!(hull, expected_hull);

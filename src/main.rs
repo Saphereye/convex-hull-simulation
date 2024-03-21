@@ -1,12 +1,17 @@
 //! # Convex Hull Simulation
 //! A rust based step by step simulation of Jarvis March and Kirk Patrick Seidel algorithms for convex hull generation.
 //! The program uses [Bevy](https://bevyengine.org) as the game engine and [egui](https://github.com/emilk/egui) for the ui library.
+//! 
+//! ## What is a convex hull?
+//! The convex hull of a finite point set S in the plane is the smallest
+//! convex polygon containing the set. The vertices (corners) of this polygon must be
+//! points of S. Thus in order to compute the convex hull of a set S it is necessary to find
+//! those points of S which are vertices of the hull. For the purposes of constructing upper
+//! bounds we define the convex hull problem, as the problem of constructing the ordered
+//! sequence of points of S which constitute the sequences of vertices around the hull.
 //!
 //! ## Program flow
 //! [![](https://mermaid.ink/img/pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA?type=png)](https://mermaid.live/edit#pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA)
-//!
-//! ## Comparison between Jarvis March and Kirk Patrick Seidel
-//! todo
 
 use std::fmt::Debug;
 
@@ -174,7 +179,7 @@ fn graphics_drawing(
                     TextBundle::from_section(
                         comment,
                         TextStyle {
-                            font_size: 20.0,
+                            font_size: 50.0,
                             ..default()
                         },
                     )
@@ -295,6 +300,7 @@ fn ui(
             &[
                 ("Jarvis March", AlgorithmType::JarvisMarch),
                 ("Kirk Patrick Seidel", AlgorithmType::KirkPatrickSeidel),
+                ("Graham Scan", AlgorithmType::GrahamScan)
             ],
         );
 
@@ -308,6 +314,7 @@ fn ui(
             match algorithm.0 {
                 AlgorithmType::JarvisMarch => jarvis_march(points, &mut drawing_history.0),
                 AlgorithmType::KirkPatrickSeidel => kirk_patrick_seidel(points, &mut drawing_history.0),
+                AlgorithmType::GrahamScan => graham_scan(points, &mut drawing_history.0),
             };
         }
 

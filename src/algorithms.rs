@@ -200,8 +200,8 @@ pub fn graham_scan(mut points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType
 /// 4. Find the upper bridge pq of L and R, p∈L, and q∈R
 /// 5. L′ ← { r ∈L x(r) ≤ x(p) }
 /// 6. R′ ← { r ∈R x(r) ≥ x(q) }
-/// 7. LUH ← UpperHall(L′)
-/// 8. RUH ← UpperHall(R′)
+/// 7. LUH ← UpperHull(L′)
+/// 8. RUH ← UpperHull(R′)
 /// 9. return the concatenated list LUH, pq, RUH as the upper hull of P.
 /// 10. end
 /// ```
@@ -243,22 +243,50 @@ pub fn kirk_patrick_seidel(
     points: Vec<Vec2>,
     drawing_history: &mut Vec<Vec<LineType>>,
 ) -> Vec<Vec2> {
-    warn_once!("Kirkpatrick Seidel is wrong");
+    let convex_hull = upper_hull(points, drawing_history);
+
+    let mut temp = vec![];
+    for i in 0..convex_hull.len() {
+        let j = (i + 1) % convex_hull.len();
+        temp.push(LineType::PartOfHull(convex_hull[i], convex_hull[j]));
+    }
+
+    drawing_history.push(temp);
+
+    convex_hull
+}
+
+fn upper_hull(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
     if points.len() < 3 {
         return points;
     }
 
     let x_cor_median = median_of_medians(&points).x;
-    let (left, right): (Vec<Vec2>, Vec<Vec2>) = points.clone()
+    let (left, right): (Vec<Vec2>, Vec<Vec2>) = points
+        .clone()
         .into_iter()
         .partition(|point| point.x <= x_cor_median);
 
-    println!("Points:{:?}, Left: {:?}, Right: {:?}, Median: {}", points, left, right, x_cor_median);
+    println!(
+        "Points:{:?}, Left: {:?}, Right: {:?}, Median: {}",
+        points, left, right, x_cor_median
+    );
 
     let upper_bridge = upper_bridge(&left, &right, x_cor_median, drawing_history);
 
-    let mut left_hull = kirk_patrick_seidel(left, drawing_history);
-    let mut right_hull = kirk_patrick_seidel(right, drawing_history);
+    let mut left_hull = upper_hull(
+        left.into_iter()
+            .filter(|point| point.x <= upper_bridge.0.x)
+            .collect(),
+        drawing_history,
+    );
+    let right_hull = upper_hull(
+        right
+            .into_iter()
+            .filter(|point| point.x >= upper_bridge.1.x)
+            .collect(),
+        drawing_history,
+    );
 
     // Merge the left and right hulls
     left_hull.extend(right_hull);
@@ -394,10 +422,10 @@ mod tests {
         let hull: Vec<Vec2> = kirk_patrick_seidel(points, &mut drawing_history);
 
         let expected_hull = vec![
+            Vec2::new(0.0, 3.0),
             Vec2::new(0.0, 0.0),
             Vec2::new(3.0, 0.0),
             Vec2::new(3.0, 3.0),
-            Vec2::new(0.0, 3.0),
         ];
 
         assert_eq!(hull, expected_hull);

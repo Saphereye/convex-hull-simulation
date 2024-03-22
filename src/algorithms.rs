@@ -243,7 +243,14 @@ pub fn kirk_patrick_seidel(
     points: Vec<Vec2>,
     drawing_history: &mut Vec<Vec<LineType>>,
 ) -> Vec<Vec2> {
-    let convex_hull = upper_hull(points, drawing_history);
+    let upper_hull_vec = upper_hull(points.clone(), drawing_history);
+
+    let mirrored_points: Vec<Vec2> = points.into_iter().map(|p| Vec2::new(p.x, -p.y)).collect();
+    let mut lower_hull = upper_hull(mirrored_points, drawing_history);
+    lower_hull.iter_mut().for_each(|p| p.y = -p.y);
+
+    let mut convex_hull = upper_hull_vec;
+    convex_hull.extend(lower_hull.into_iter().rev());
 
     let mut temp = vec![];
     for i in 0..convex_hull.len() {

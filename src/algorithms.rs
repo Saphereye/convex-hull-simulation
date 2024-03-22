@@ -143,6 +143,7 @@ fn orientation(p: &Vec2, q: &Vec2, r: &Vec2) -> Orientation {
 }
 
 pub fn graham_scan(mut points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
+    warn_once!("Graham scan is wrong");
     if points.len() < 3 {
         return Vec::new();
     }
@@ -186,16 +187,16 @@ pub fn graham_scan(mut points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType
 }
 
 /// Implementation of the [Kirkpatrick Seidel](https://graphics.stanford.edu/courses/cs268-16-fall/Notes/KirkSeidel.pdf) Algorithm
-/// 
+///
 /// ![](https://d3i71xaburhd42.cloudfront.net/9565745ce8b6c2114072e9620981fb97ed38e471/2-Figure1-1.png)
-/// 
-/// ## Pseudocode
+///
+/// ## Pseudocode [ref](http://www.cse.yorku.ca/~andy/courses/6114/lecture-notes/KirkSeidel.pdf)
 /// ```pseudocode
 /// Algorithm UpperHull(P)
 /// 0. if |P| ≤ 2 then return the obvious answer
 /// 1. else begin
-/// 2. Compute the median xmed of x-coordinates of points in P.
-/// 3. Partition P into two sets L and R each of size about n/2 around the median xmed .
+/// 2. Compute the median of x-coordinates of points in P.
+/// 3. Partition P into two sets L and R each of size about n/2 around the median.
 /// 4. Find the upper bridge pq of L and R, p∈L, and q∈R
 /// 5. L′ ← { r ∈L x(r) ≤ x(p) }
 /// 6. R′ ← { r ∈R x(r) ≥ x(q) }
@@ -204,7 +205,7 @@ pub fn graham_scan(mut points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType
 /// 9. return the concatenated list LUH, pq, RUH as the upper hull of P.
 /// 10. end
 /// ```
-/// 
+///
 /// ## Analysis
 /// This is a divide-&-conquer algorithm. The key step is the computation of the upper
 /// bridge which is based on the prune-&-search technique. This step can be done in O(n) time. We also know that step
@@ -219,30 +220,108 @@ pub fn graham_scan(mut points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType
 /// T(n, h) = O(n) + max_{h1} \{ T(\frac{n}{2}, h_1) + T(\frac{n}{2}, h-1-h_1)\}
 /// $$
 /// if $h > 2$, otherwise $T(n, h) = O(n)$.
-/// 
+///
 /// Suppose the two occurences of $O(n)$ in the above recurrence are at most $cn$,
 /// where $c$ is a suitably large constant. We will show by induction on $h$ that
 /// $T(n, h) \leq cn \log(h)$ for all $n$ and $h \leq 2$. For the base case where $h = 2$,
 /// $T(n, h) \leq cn \leq cn\log(2) = cn \log(h)$. For the inductive case,
-/// 
+///
 /// $T(n, h)$
-/// 
+///
 /// $\leq cn + max_{h1} \{ c\frac{n}{2}\log(h_1) + c\frac{n}{2}\log(h-1-h_1)\}$
-/// 
+///
 /// $= cn + c\frac{n}{2}max_{h1} \log(h_1 (h - 1 - h_1))$
-/// 
+///
 /// $\leq cn + c\frac{n}{2}\log(\frac{h}{2} \cdot \frac{h}{2})$
-/// 
+///
 /// $= cn + c\frac{n}{2}2\log(\frac{h}2)$
-/// 
+///
 /// $= cn\log(h)$
-/// 
+///
 /// Thus we can claim runtime of kirpatrick seidel algorithm to be $O(n\log(h))$.
 pub fn kirk_patrick_seidel(
     points: Vec<Vec2>,
     drawing_history: &mut Vec<Vec<LineType>>,
 ) -> Vec<Vec2> {
-    todo!("Kirk Patrick Seidel algorithm is not implemented yet");
+    warn_once!("Kirkpatrick Seidel is wrong");
+    if points.len() < 3 {
+        return points;
+    }
+
+    let x_cor_median = median_of_medians(&points).x;
+    let (left, right): (Vec<Vec2>, Vec<Vec2>) = points.clone()
+        .into_iter()
+        .partition(|point| point.x <= x_cor_median);
+
+    println!("Points:{:?}, Left: {:?}, Right: {:?}, Median: {}", points, left, right, x_cor_median);
+
+    let upper_bridge = upper_bridge(&left, &right, x_cor_median, drawing_history);
+
+    let mut left_hull = kirk_patrick_seidel(left, drawing_history);
+    let mut right_hull = kirk_patrick_seidel(right, drawing_history);
+
+    // Merge the left and right hulls
+    left_hull.extend(right_hull);
+
+    left_hull
+}
+
+fn upper_bridge(
+    left: &[Vec2],
+    right: &[Vec2],
+    reference_median: f32,
+    drawing_history: &mut Vec<Vec<LineType>>,
+) -> (Vec2, Vec2) {
+    let mut max_intersection = f32::MIN;
+    let mut max_points = (Vec2::default(), Vec2::default());
+
+    for left_point in left {
+        for right_point in right {
+            let intersection = calculate_intersection(left_point, right_point, reference_median);
+
+            if intersection > max_intersection {
+                max_intersection = intersection;
+                max_points = (*left_point, *right_point);
+            }
+        }
+    }
+
+    max_points
+}
+
+fn calculate_intersection(a: &Vec2, b: &Vec2, reference_median: f32) -> f32 {
+    // Calculate the slope of the line
+    let slope = (b.y - a.y) / (b.x - a.x);
+
+    // Calculate the y-intercept of the line
+    let y_intercept = a.y - slope * a.x;
+
+    // Calculate the y-coordinate of the intersection of the line with the vertical line at reference_median
+    let intersection = slope * reference_median + y_intercept;
+
+    intersection
+}
+
+pub fn median_of_medians<T: AsRef<[Vec2]>>(nums: T) -> Vec2 {
+    warn!("Median of medians is wrongly implemented");
+    let mut nums = nums.as_ref().to_vec();
+    nums.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+    nums[nums.len() / 2]
+    // let nums = nums.as_ref();
+    // match nums.len() {
+    //     0 => panic!("No median of an empty list"),
+    //     1 => nums[0],
+    //     _ => median_of_medians(
+    //         nums.to_vec()
+    //             .chunks(5)
+    //             .map(|chunk| {
+    //                 let mut chunk = chunk.to_vec();
+    //                 chunk.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+    //                 chunk[chunk.len() / 2]
+    //             })
+    //             .collect::<Vec<Vec2>>(),
+    //     ),
+    // }
 }
 
 #[cfg(test)]

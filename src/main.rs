@@ -94,7 +94,7 @@ fn main() {
 struct ColorText;
 
 #[derive(Resource)]
-struct TextComment(pub String);
+struct TextComment;
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default()).insert(PanCam {

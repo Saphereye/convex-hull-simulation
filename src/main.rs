@@ -1,7 +1,7 @@
 //! # Convex Hull Simulation
 //! A rust based step by step simulation of Jarvis March and Kirk Patrick Seidel algorithms for convex hull generation.
 //! The program uses [Bevy](https://bevyengine.org) as the game engine and [egui](https://github.com/emilk/egui) for the ui library.
-//! 
+//!
 //! ## What is a convex hull?
 //! The convex hull of a finite point set S in the plane is the smallest
 //! convex polygon containing the set. The vertices (corners) of this polygon must be
@@ -16,9 +16,14 @@
 use std::fmt::Debug;
 
 use bevy::{
-    prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}
+    prelude::*,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    window::{PrimaryWindow, Window},
 };
-use bevy_egui::{egui::{self}, EguiContexts, EguiPlugin};
+use bevy_egui::{
+    egui::{self},
+    EguiContexts, EguiPlugin,
+};
 use bevy_pancam::{PanCam, PanCamPlugin};
 use egui_extras::{Column, TableBuilder};
 
@@ -87,6 +92,7 @@ fn main() {
         )))
         .insert_resource(DrawingHistory(vec![], 0))
         .insert_resource(Algorithm(AlgorithmType::JarvisMarch))
+        .insert_resource(TextComment)
         .run();
 }
 
@@ -111,7 +117,13 @@ use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::PrimitiveTopology;
 
 macro_rules! draw_lines {
-    ($commands:expr, $meshes:expr, $materials:expr, $line:expr, Gizmo) => {
+    ($commands:expr, $meshes:expr, $materials:expr, $line:expr, $line_type:tt) => {
+        let color = match stringify!($line_type) {
+            "Gizmo" => Color::rgb(0.44, 0.44, 0.44),
+            "ConvexHull" => Color::rgb(1.0, 1.0, 1.0),
+            _ => Color::rgb(0.5, 0.5, 0.5), // Default color
+        };
+
         $commands.spawn((
             MaterialMesh2dBundle {
                 mesh: Mesh2dHandle(
@@ -120,25 +132,10 @@ macro_rules! draw_lines {
                             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, $line),
                     ),
                 ),
-                material: $materials.add(Color::rgb(0.44, 0.44, 0.44)),
+                material: $materials.add(color),
                 ..default()
             },
-            Gizmo,
-        ));
-    };
-    ($commands:expr, $meshes:expr, $materials:expr, $line:expr, ConvexHull) => {
-        $commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: Mesh2dHandle(
-                    $meshes.add(
-                        Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
-                            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, $line),
-                    ),
-                ),
-                material: $materials.add(Color::rgb(1.0, 1.0, 1.0)),
-                ..default()
-            },
-            ConvexHull,
+            $line_type,
         ));
     };
 }
@@ -151,8 +148,10 @@ fn graphics_drawing(
     mut simulation_timer: ResMut<SimulationTimer>,
     gizmo_query: Query<Entity, With<Gizmo>>,
     text_query: Query<Entity, With<ColorText>>,
-    mut drawing_history: ResMut<DrawingHistory>
+    mut drawing_history: ResMut<DrawingHistory>,
+    mut window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
+    let window = window.single();
     if drawing_history.0.is_empty() || drawing_history.0.len() == drawing_history.1 {
         // despawn_entities(&mut commands, &gizmo_query);
         return;
@@ -169,17 +168,29 @@ fn graphics_drawing(
     for i in &drawing_history.0[drawing_history.1] {
         match i {
             LineType::PartOfHull(a, b) => {
-                draw_lines!(commands, meshes, materials, vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]], ConvexHull);
-            },
+                draw_lines!(
+                    commands,
+                    meshes,
+                    materials,
+                    vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]],
+                    ConvexHull
+                );
+            }
             LineType::Temporary(a, b) => {
-                draw_lines!(commands, meshes, materials, vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]], Gizmo);
+                draw_lines!(
+                    commands,
+                    meshes,
+                    materials,
+                    vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]],
+                    Gizmo
+                );
             }
             LineType::TextComment(comment) => {
                 commands.spawn((
                     TextBundle::from_section(
                         comment,
                         TextStyle {
-                            font_size: 50.0,
+                            font_size: 20.0,
                             ..default()
                         },
                     )
@@ -191,6 +202,27 @@ fn graphics_drawing(
                         ..default()
                     }),
                     ColorText,
+                ));
+            }
+            LineType::VerticalLine(x) => {
+                commands.spawn((
+                    MaterialMesh2dBundle {
+                        mesh: Mesh2dHandle(
+                            meshes.add(
+                                Mesh::new(
+                                    PrimitiveTopology::LineStrip,
+                                    RenderAssetUsages::default(),
+                                )
+                                .with_inserted_attribute(
+                                    Mesh::ATTRIBUTE_POSITION,
+                                    vec![[*x, -window.height(), 0.0], [*x, window.height(), 0.0]],
+                                ),
+                            ),
+                        ),
+                        material: materials.add(Color::rgb(0.5, 0.5, 0.5)),
+                        ..default()
+                    },
+                    Gizmo,
                 ));
             }
         }
@@ -310,7 +342,6 @@ fn ui(
             despawn_entities(&mut commands, &convex_hull_query);
             despawn_entities(&mut commands, &gizmo_query);
             let points = point_data.0.clone();
-            
             match algorithm.0 {
                 AlgorithmType::JarvisMarch => jarvis_march(points, &mut drawing_history.0),
                 AlgorithmType::KirkPatrickSeidel => kirk_patrick_seidel(points, &mut drawing_history.0),

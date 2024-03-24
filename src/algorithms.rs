@@ -261,9 +261,9 @@ pub fn kirk_patrick_seidel(
     ));
     drawing_history.push(upper_hull_history);
 
-    let mirrored_points: Vec<Vec2> = points.into_iter().map(|p| Vec2::new(p.x, -p.y)).collect();
+    // let mirrored_points: Vec<Vec2> = points.into_iter().map(|p| Vec2::new(p.x, -p.y)).collect();
     let mut lower_hull_history = vec![];
-    let lower_hull = lower_hull(mirrored_points, drawing_history);
+    let lower_hull = lower_hull(points, drawing_history);
     // lower_hull.iter_mut().for_each(|p| p.y = -p.y);
     for (index, _) in lower_hull.iter().enumerate() {
         let j = (index + 1) % lower_hull.len();

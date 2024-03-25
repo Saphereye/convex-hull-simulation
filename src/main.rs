@@ -148,6 +148,7 @@ fn graphics_drawing(
     mut simulation_timer: ResMut<SimulationTimer>,
     gizmo_query: Query<Entity, With<Gizmo>>,
     text_query: Query<Entity, With<ColorText>>,
+    convex_hull_query: Query<Entity, With<ConvexHull>>,
     mut drawing_history: ResMut<DrawingHistory>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
@@ -215,15 +216,23 @@ fn graphics_drawing(
                                 )
                                 .with_inserted_attribute(
                                     Mesh::ATTRIBUTE_POSITION,
-                                    vec![[*x, -window.height(), 0.0], [*x, window.height(), 0.0]],
+                                    vec![
+                                        [*x, -window.height() * 40.0, 0.0],
+                                        [*x, window.height() * 40.0, 0.0],
+                                    ],
                                 ),
                             ),
                         ),
-                        material: materials.add(Color::rgb(0.5, 0.5, 0.5)),
+                        material: materials.add(Color::rgb(1.0, 0.0, 0.0)),
                         ..default()
                     },
                     Gizmo,
                 ));
+            }
+            LineType::ClearScreen => {
+                despawn_entities(&mut commands, &gizmo_query);
+                despawn_entities(&mut commands, &text_query);
+                despawn_entities(&mut commands, &convex_hull_query);
             }
         }
     }
@@ -332,7 +341,6 @@ fn ui(
             &[
                 ("Jarvis March", AlgorithmType::JarvisMarch),
                 ("Kirk Patrick Seidel", AlgorithmType::KirkPatrickSeidel),
-                ("Graham Scan", AlgorithmType::GrahamScan)
             ],
         );
 

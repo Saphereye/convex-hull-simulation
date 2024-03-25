@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy::prelude::*;
 
 #[derive(Resource)]
@@ -24,6 +26,7 @@ pub enum LineType {
     Temporary(Vec2, Vec2),
     TextComment(String),
     VerticalLine(f32), // Draws a vertical line at x
+    ClearScreen,
 }
 
 /// # Implementation of the [Jarvis March](https://en.wikipedia.org/wiki/Gift_wrapping_algorithm) algorithm (Gift-Wrapping algorithm)
@@ -260,6 +263,7 @@ pub fn kirk_patrick_seidel(
         "Upper Hull has been found".to_string(),
     ));
     drawing_history.push(upper_hull_history);
+    drawing_history.push(vec![LineType::ClearScreen]);
 
     // let mirrored_points: Vec<Vec2> = points.into_iter().map(|p| Vec2::new(p.x, -p.y)).collect();
     let mut lower_hull_history = vec![];
@@ -276,24 +280,52 @@ pub fn kirk_patrick_seidel(
         "Lower Hull has been found".to_string(),
     ));
     drawing_history.push(lower_hull_history);
+    drawing_history.push(vec![LineType::ClearScreen]);
 
     drawing_history.push(vec![LineType::TextComment(
         "Merging the upper and lower hulls".to_string(),
     )]);
 
-    drawing_history.push(vec![LineType::TextComment(
-        "Convex Hull has been found".to_string(),
-    )]);
-
     let mut convex_hull = upper_hull_vec;
     convex_hull.extend(lower_hull.into_iter().rev());
+
+    // Sort the convex hull by x-coordinate
+
+    // Draw the sorted convex hull
+    let mut convex_hull_history = vec![];
+    for (index, _) in convex_hull.iter().enumerate() {
+        let j = (index + 1) % convex_hull.len();
+        if j == 0 {
+            continue;
+        };
+        convex_hull_history.push(LineType::PartOfHull(convex_hull[index], convex_hull[j]));
+    }
+    convex_hull_history.push(LineType::TextComment(
+        "Convex Hull has been found".to_string(),
+    ));
+    drawing_history.push(convex_hull_history);
 
     convex_hull
 }
 
 fn upper_hull(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
-    if points.len() < 3 {
+    if points.len() < 2 {
         return points;
+    }
+
+    if points.len() < 3 {
+        if points[0].x == points[1].x {
+            let upper_hull = if points[0].y < points[1].y {
+                vec![points[1]]
+            } else {
+                vec![points[0]]
+            };
+            return upper_hull;
+        } else {
+            let mut upper_hull = points;
+            upper_hull.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+            return upper_hull;
+        }
     }
 
     let x_cor_median = median_of_medians(&points).x;
@@ -306,36 +338,37 @@ fn upper_hull(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Ve
         .into_iter()
         .partition(|point| point.x <= x_cor_median);
 
-    // println!(
-    //     "Points:{:?}, Left: {:?}, Right: {:?}, Median: {}",
-    //     points, left, right, x_cor_median
-    // );
-
     let upper_bridge = upper_bridge(&left, &right, x_cor_median, drawing_history);
     drawing_history.push(vec![
         LineType::PartOfHull(upper_bridge.0, upper_bridge.1),
         LineType::TextComment("Upper Bridge has been found".to_string()),
     ]);
 
-    let mut left_hull = upper_hull(
-        left.into_iter()
-            .filter(|point| point.x <= upper_bridge.0.x)
+    let left_hull = upper_hull(
+        left.clone()
+            .into_iter()
+            .filter(|point| point.x <= upper_bridge.0.x && left.contains(point))
             .collect(),
         drawing_history,
     );
 
     let right_hull = upper_hull(
         right
+            .clone()
             .into_iter()
-            .filter(|point| point.x >= upper_bridge.1.x)
+            .filter(|point| point.x >= upper_bridge.1.x && right.contains(point))
             .collect(),
         drawing_history,
     );
 
-    // Merge the left and right hulls
-    left_hull.extend(right_hull);
+    let mut upper_hull = Vec::new();
 
-    left_hull
+    upper_hull.extend(left_hull);
+    // upper_hull.push(upper_bridge.0);
+    // upper_hull.push(upper_bridge.1);
+    upper_hull.extend(right_hull);
+
+    upper_hull
 }
 
 fn upper_bridge(
@@ -347,6 +380,7 @@ fn upper_bridge(
     let mut max_intersection = f32::MIN;
     let mut max_points = (Vec2::default(), Vec2::default());
 
+    // BUG: Should use better method to find the upper bridge
     for left_point in left {
         for right_point in right {
             let intersection = calculate_intersection(left_point, right_point, reference_median);
@@ -362,8 +396,23 @@ fn upper_bridge(
 }
 
 pub fn lower_hull(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
-    if points.len() < 3 {
+    if points.len() < 2 {
         return points;
+    }
+
+    if points.len() < 3 {
+        if points[0].x == points[1].x {
+            let upper_hull = if points[0].y > points[1].y {
+                vec![points[1]]
+            } else {
+                vec![points[0]]
+            };
+            return upper_hull;
+        } else {
+            let mut upper_hull = points;
+            upper_hull.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+            return upper_hull;
+        }
     }
 
     let x_cor_median = median_of_medians(&points).x;
@@ -382,25 +431,31 @@ pub fn lower_hull(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -
         LineType::TextComment("Lower Bridge has been found".to_string()),
     ]);
 
-    let mut left_hull = lower_hull(
-        left.into_iter()
-            .filter(|point| point.x <= lower_bridge.0.x)
+    let left_hull = lower_hull(
+        left.clone()
+            .into_iter()
+            .filter(|point| point.x <= lower_bridge.0.x && left.contains(point))
             .collect(),
         drawing_history,
     );
 
     let right_hull = lower_hull(
         right
+            .clone()
             .into_iter()
-            .filter(|point| point.x >= lower_bridge.1.x)
+            .filter(|point| point.x >= lower_bridge.1.x && right.contains(point))
             .collect(),
         drawing_history,
     );
 
-    // Merge the left and right hulls
-    left_hull.extend(right_hull);
+    let mut lower_hull = Vec::new();
 
-    left_hull
+    lower_hull.extend(left_hull);
+    lower_hull.push(lower_bridge.0);
+    lower_hull.push(lower_bridge.1);
+    lower_hull.extend(right_hull);
+
+    lower_hull
 }
 
 fn lower_bridge(
@@ -438,25 +493,30 @@ fn calculate_intersection(a: &Vec2, b: &Vec2, reference_median: f32) -> f32 {
 }
 
 pub fn median_of_medians<T: AsRef<[Vec2]>>(nums: T) -> Vec2 {
-    warn_once!("Median of medians is wrongly implemented");
-    let mut nums = nums.as_ref().to_vec();
-    nums.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
-    nums[nums.len() / 2]
-    // let nums = nums.as_ref();
-    // match nums.len() {
-    //     0 => panic!("No median of an empty list"),
-    //     1 => nums[0],
-    //     _ => median_of_medians(
-    //         nums.to_vec()
-    //             .chunks(5)
-    //             .map(|chunk| {
-    //                 let mut chunk = chunk.to_vec();
-    //                 chunk.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
-    //                 chunk[chunk.len() / 2]
-    //             })
-    //             .collect::<Vec<Vec2>>(),
-    //     ),
-    // }
+    // warn_once!("Median of medians is wrongly implemented");
+    // let mut nums = nums.as_ref().to_vec();
+    // nums.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+    // nums[nums.len() / 2]
+    let nums = nums.as_ref();
+    match nums.len() {
+        0 => panic!("No median of an empty list"),
+        1 => nums[0],
+        2..=5 => {
+            let mut nums = nums.to_vec();
+            nums.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+            nums[nums.len() / 2]
+        }
+        _ => median_of_medians(
+            nums.to_vec()
+                .chunks(5)
+                .map(|chunk| {
+                    let mut chunk = chunk.to_vec();
+                    chunk.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+                    chunk[chunk.len() / 2]
+                })
+                .collect::<Vec<Vec2>>(),
+        ),
+    }
 }
 
 #[cfg(test)]

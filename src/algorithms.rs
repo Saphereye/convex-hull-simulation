@@ -252,12 +252,12 @@ pub fn kirk_patrick_seidel(
     points: Vec<Vec2>,
     drawing_history: &mut Vec<Vec<LineType>>,
 ) -> Vec<Vec2> {
-    let upper_hull_vec = upper_hull(points.clone(), drawing_history);
+    let upper_hull_vec = upper_hull(&points, drawing_history);
 
     todo!("Implement Kirkpatrick Seidel")
 }
 
-fn upper_hull(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
+fn upper_hull(points: &Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
     let min_point = *points
         .iter()
         .min_by(|a, b| {
@@ -322,7 +322,19 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
     }
 
     // Todo write logic for pairs
-    let pairs: Vec<(Vec2, Vec2)> = Vec::new();
+    let mut sorted_points = points.clone();
+    sorted_points.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+
+    let mut pairs: Vec<(Vec2, Vec2)> = Vec::new();
+    let mut candidates: Vec<Vec2> = Vec::new();
+
+    for chunk in sorted_points.chunks(2) {
+        if chunk.len() == 2 {
+            pairs.push((chunk[0], chunk[1]));
+        } else {
+            candidates.push(chunk[0]);
+        }
+    }
 
     let mut slopes = vec![];
 

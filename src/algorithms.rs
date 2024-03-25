@@ -321,12 +321,10 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
         };
     }
 
-    // Todo write logic for pairs
     let mut sorted_points = points.clone();
     sorted_points.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
 
     let mut pairs: Vec<(Vec2, Vec2)> = Vec::new();
-    let mut candidates: Vec<Vec2> = Vec::new();
 
     for chunk in sorted_points.chunks(2) {
         if chunk.len() == 2 {

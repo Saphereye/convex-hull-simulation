@@ -190,6 +190,11 @@ pub fn graham_scan(mut points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType
     points
 }
 
+enum HullType {
+    UpperHull,
+    LowerHull,
+}
+
 /// Implementation of the [Kirkpatrick Seidel](https://graphics.stanford.edu/courses/cs268-16-fall/Notes/KirkSeidel.pdf) Algorithm
 ///
 /// ![](https://d3i71xaburhd42.cloudfront.net/9565745ce8b6c2114072e9620981fb97ed38e471/2-Figure1-1.png)
@@ -248,273 +253,186 @@ pub fn kirk_patrick_seidel(
     drawing_history: &mut Vec<Vec<LineType>>,
 ) -> Vec<Vec2> {
     let upper_hull_vec = upper_hull(points.clone(), drawing_history);
-    let mut upper_hull_history = vec![];
-    for (index, _) in upper_hull_vec.iter().enumerate() {
-        let j = (index + 1) % upper_hull_vec.len();
-        if j == 0 {
-            continue;
-        };
-        upper_hull_history.push(LineType::PartOfHull(
-            upper_hull_vec[index],
-            upper_hull_vec[j],
-        ));
-    }
-    upper_hull_history.push(LineType::TextComment(
-        "Upper Hull has been found".to_string(),
-    ));
-    drawing_history.push(upper_hull_history);
-    drawing_history.push(vec![LineType::ClearScreen]);
 
-    // let mirrored_points: Vec<Vec2> = points.into_iter().map(|p| Vec2::new(p.x, -p.y)).collect();
-    let mut lower_hull_history = vec![];
-    let lower_hull = lower_hull(points, drawing_history);
-    // lower_hull.iter_mut().for_each(|p| p.y = -p.y);
-    for (index, _) in lower_hull.iter().enumerate() {
-        let j = (index + 1) % lower_hull.len();
-        if j == 0 {
-            continue;
-        };
-        lower_hull_history.push(LineType::PartOfHull(lower_hull[index], lower_hull[j]));
-    }
-    lower_hull_history.push(LineType::TextComment(
-        "Lower Hull has been found".to_string(),
-    ));
-    drawing_history.push(lower_hull_history);
-    drawing_history.push(vec![LineType::ClearScreen]);
-
-    drawing_history.push(vec![LineType::TextComment(
-        "Merging the upper and lower hulls".to_string(),
-    )]);
-
-    let mut convex_hull = upper_hull_vec;
-    convex_hull.extend(lower_hull.into_iter().rev());
-
-    // Sort the convex hull by x-coordinate
-
-    // Draw the sorted convex hull
-    let mut convex_hull_history = vec![];
-    for (index, _) in convex_hull.iter().enumerate() {
-        let j = (index + 1) % convex_hull.len();
-        if j == 0 {
-            continue;
-        };
-        convex_hull_history.push(LineType::PartOfHull(convex_hull[index], convex_hull[j]));
-    }
-    convex_hull_history.push(LineType::TextComment(
-        "Convex Hull has been found".to_string(),
-    ));
-    drawing_history.push(convex_hull_history);
-
-    convex_hull
+    todo!("Implement Kirkpatrick Seidel")
 }
 
 fn upper_hull(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
-    if points.len() < 2 {
-        return points;
+    let min_point = *points
+        .iter()
+        .min_by(|a, b| {
+            a.x.partial_cmp(&b.x)
+                .unwrap_or_else(|| a.y.partial_cmp(&b.y).unwrap())
+        })
+        .unwrap();
+
+    let max_point = *points
+        .iter()
+        .max_by(|a, b| {
+            a.x.partial_cmp(&b.x)
+                .unwrap_or_else(|| a.y.partial_cmp(&b.y).unwrap())
+        })
+        .unwrap();
+
+    if min_point == max_point {
+        return vec![min_point];
     }
 
-    if points.len() < 3 {
-        if points[0].x == points[1].x {
-            let upper_hull = if points[0].y < points[1].y {
-                vec![points[1]]
-            } else {
-                vec![points[0]]
-            };
-            return upper_hull;
-        } else {
-            let mut upper_hull = points;
-            upper_hull.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
-            return upper_hull;
-        }
-    }
-
-    let x_cor_median = median_of_medians(&points).x;
-    drawing_history.push(vec![
-        LineType::VerticalLine(x_cor_median),
-        LineType::TextComment(format!("Median of x-coordinates is {}", x_cor_median)),
-    ]);
-    let (left, right): (Vec<Vec2>, Vec<Vec2>) = points
-        .clone()
-        .into_iter()
-        .partition(|point| point.x <= x_cor_median);
-
-    let upper_bridge = upper_bridge(&left, &right, x_cor_median, drawing_history);
-    drawing_history.push(vec![
-        LineType::PartOfHull(upper_bridge.0, upper_bridge.1),
-        LineType::TextComment("Upper Bridge has been found".to_string()),
-    ]);
-
-    let left_hull = upper_hull(
-        left.clone()
-            .into_iter()
-            .filter(|point| point.x <= upper_bridge.0.x && left.contains(point))
-            .collect(),
-        drawing_history,
+    let mut temporary = vec![min_point, max_point];
+    temporary.extend(
+        points
+            .iter()
+            .filter(|p| p.x > min_point.x && p.x < max_point.x),
     );
 
-    let right_hull = upper_hull(
-        right
-            .clone()
-            .into_iter()
-            .filter(|point| point.x >= upper_bridge.1.x && right.contains(point))
-            .collect(),
-        drawing_history,
-    );
-
-    let mut upper_hull = Vec::new();
-
-    upper_hull.extend(left_hull);
-    // upper_hull.push(upper_bridge.0);
-    // upper_hull.push(upper_bridge.1);
-    upper_hull.extend(right_hull);
-
-    upper_hull
+    return connect(min_point, max_point, &temporary);
 }
 
-fn upper_bridge(
-    left: &[Vec2],
-    right: &[Vec2],
-    reference_median: f32,
-    drawing_history: &mut [Vec<LineType>],
-) -> (Vec2, Vec2) {
-    let mut max_intersection = f32::MIN;
-    let mut max_points = (Vec2::default(), Vec2::default());
+fn connect(min: Vec2, max: Vec2, points: &Vec<Vec2>) -> Vec<Vec2> {
+    let median = median_of_medians(&points.iter().map(|point| point.x).collect());
+    let (left, right) = bridge(points, median);
 
-    // BUG: Should use better method to find the upper bridge
-    for left_point in left {
-        for right_point in right {
-            let intersection = calculate_intersection(left_point, right_point, reference_median);
+    let mut left_points = vec![left];
+    left_points.extend(points.iter().filter(|p| p.x < left.x));
 
-            if intersection > max_intersection {
-                max_intersection = intersection;
-                max_points = (*left_point, *right_point);
+    let mut right_points = vec![right];
+    right_points.extend(points.iter().filter(|p| p.x > right.x));
+
+    if left == min {
+        return vec![left];
+    } else {
+        return connect(min, left, &left_points);
+    }
+
+    if right == max {
+        return vec![right];
+    } else {
+        return connect(right, max, &right_points);
+    }
+}
+
+fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
+    let mut candidates: Vec<Vec2> = Vec::new();
+    if points.len() == 2 {
+        return if points[0].x < points[1].x {
+            (points[0], points[1])
+        } else {
+            (points[1], points[0])
+        };
+    }
+
+    // Todo write logic for pairs
+    let pairs: Vec<(Vec2, Vec2)> = Vec::new();
+
+    let mut slopes = vec![];
+
+    for (point_i, point_j) in pairs.iter() {
+        if point_i.x == point_j.x {
+            if point_i.y > point_j.y {
+                if !candidates.contains(&point_i) {
+                    candidates.push(*point_i);
+                }
+            } else {
+                slopes.push((
+                    point_i,
+                    point_j,
+                    (point_i.y - point_j.y) / (point_i.x - point_j.x),
+                ));
             }
         }
     }
 
-    max_points
-}
+    let median_slope = median_of_medians(&slopes.iter().map(|(_, _, slope)| slope).collect());
+    let small = slopes.iter().filter(|(_, _, slope)| slope < median_slope);
+    let equal = slopes.iter().filter(|(_, _, slope)| slope == median_slope);
+    let large = slopes.iter().filter(|(_, _, slope)| slope > median_slope);
 
-pub fn lower_hull(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
-    if points.len() < 2 {
-        return points;
-    }
+    // set of points with maximum value of p.y - median_slope * p.x
+    let max_value = points
+        .iter()
+        .map(|p| p.y - median_slope * p.x)
+        .fold(f32::MIN, f32::max);
+    let max_points: Vec<_> = points
+        .iter()
+        .filter(|p| (p.y - median_slope * p.x) == max_value)
+        .collect();
+    let min_point = max_points
+        .iter()
+        .min_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
+        .unwrap();
+    let max_point = max_points
+        .iter()
+        .max_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
+        .unwrap();
 
-    if points.len() < 3 {
-        if points[0].x == points[1].x {
-            let upper_hull = if points[0].y > points[1].y {
-                vec![points[1]]
-            } else {
-                vec![points[0]]
-            };
-            return upper_hull;
-        } else {
-            let mut upper_hull = points;
-            upper_hull.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
-            return upper_hull;
+    if min_point.x <= median && max_point.x > median {
+        return (**min_point, **max_point);
+    } else if max_point.x <= median {
+        for (_, point2, _) in large {
+            if !candidates.contains(point2) {
+                candidates.push(**point2);
+            }
         }
-    }
 
-    let x_cor_median = median_of_medians(&points).x;
-    drawing_history.push(vec![
-        LineType::VerticalLine(x_cor_median),
-        LineType::TextComment(format!("Median of x-coordinates is {}", x_cor_median)),
-    ]);
-    let (left, right): (Vec<Vec2>, Vec<Vec2>) = points
-        .clone()
-        .into_iter()
-        .partition(|point| point.x <= x_cor_median);
+        for (_, point2, _) in equal {
+            if !candidates.contains(point2) {
+                candidates.push(**point2);
+            }
+        }
 
-    let lower_bridge = lower_bridge(&left, &right, x_cor_median, drawing_history);
-    drawing_history.push(vec![
-        LineType::PartOfHull(lower_bridge.0, lower_bridge.1),
-        LineType::TextComment("Lower Bridge has been found".to_string()),
-    ]);
+        for (point1, point2, _) in small {
+            if !candidates.contains(point2) {
+                candidates.push(**point2);
+            }
+            if !candidates.contains(point1) {
+                candidates.push(**point1);
+            }
+        }
+    } else if min_point.x > median {
+        for (point1, _, _) in small {
+            if !candidates.contains(point1) {
+                candidates.push(**point1);
+            }
+        }
 
-    let left_hull = lower_hull(
-        left.clone()
-            .into_iter()
-            .filter(|point| point.x <= lower_bridge.0.x && left.contains(point))
-            .collect(),
-        drawing_history,
-    );
+        for (point1, _, _) in equal {
+            if !candidates.contains(point1) {
+                candidates.push(**point1);
+            }
+        }
 
-    let right_hull = lower_hull(
-        right
-            .clone()
-            .into_iter()
-            .filter(|point| point.x >= lower_bridge.1.x && right.contains(point))
-            .collect(),
-        drawing_history,
-    );
-
-    let mut lower_hull = Vec::new();
-
-    lower_hull.extend(left_hull);
-    lower_hull.push(lower_bridge.0);
-    lower_hull.push(lower_bridge.1);
-    lower_hull.extend(right_hull);
-
-    lower_hull
-}
-
-fn lower_bridge(
-    left: &[Vec2],
-    right: &[Vec2],
-    reference_median: f32,
-    drawing_history: &mut [Vec<LineType>],
-) -> (Vec2, Vec2) {
-    let mut min_intersection = f32::MAX;
-    let mut min_points = (Vec2::default(), Vec2::default());
-
-    for left_point in left {
-        for right_point in right {
-            let intersection = calculate_intersection(left_point, right_point, reference_median);
-
-            if intersection < min_intersection {
-                min_intersection = intersection;
-                min_points = (*left_point, *right_point);
+        for (point1, point2, _) in large {
+            if !candidates.contains(point2) {
+                candidates.push(**point2);
+            }
+            if !candidates.contains(point1) {
+                candidates.push(**point1);
             }
         }
     }
 
-    min_points
+    return bridge(&candidates, median);
 }
 
-fn calculate_intersection(a: &Vec2, b: &Vec2, reference_median: f32) -> f32 {
-    // Calculate the slope of the line
-    let slope = (b.y - a.y) / (b.x - a.x);
-
-    // Calculate the y-intercept of the line
-    let y_intercept = a.y - slope * a.x;
-
-    // Calculate the y-coordinate of the intersection of the line with the vertical line at reference_median
-    slope * reference_median + y_intercept
-}
-
-pub fn median_of_medians<T: AsRef<[Vec2]>>(nums: T) -> Vec2 {
-    // warn_once!("Median of medians is wrongly implemented");
-    // let mut nums = nums.as_ref().to_vec();
-    // nums.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
-    // nums[nums.len() / 2]
-    let nums = nums.as_ref();
+pub fn median_of_medians<T: Clone + Copy + PartialOrd>(nums: &Vec<T>) -> T {
     match nums.len() {
         0 => panic!("No median of an empty list"),
         1 => nums[0],
         2..=5 => {
-            let mut nums = nums.to_vec();
-            nums.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+            let mut nums = nums.clone();
+            nums.sort_by(|a, b| a.partial_cmp(&b).unwrap());
             nums[nums.len() / 2]
         }
         _ => median_of_medians(
-            nums.to_vec()
+            &nums
+                .to_vec()
                 .chunks(5)
                 .map(|chunk| {
                     let mut chunk = chunk.to_vec();
-                    chunk.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+                    chunk.sort_by(|a, b| a.partial_cmp(&b).unwrap());
                     chunk[chunk.len() / 2]
                 })
-                .collect::<Vec<Vec2>>(),
+                .collect::<Vec<T>>(),
         ),
     }
 }

@@ -18,7 +18,7 @@ use std::fmt::Debug;
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-    window::{PrimaryWindow, Window},
+    window::PrimaryWindow,
 };
 use bevy_egui::{
     egui::{self},
@@ -43,10 +43,13 @@ struct NumberOfPoints(usize);
 struct SimulationTimeSec(f32);
 
 #[derive(Resource, Debug)]
-struct PointData(Vec<Vec2>);
+struct PointData(Vec<Vec2>, String);
 
 #[derive(Resource)]
 struct SimulationTimer(Timer);
+
+#[derive(Resource)]
+struct PointRadius(f32);
 
 fn create_combo_box<T: PartialEq + Copy>(
     ui: &mut egui::Ui,
@@ -83,7 +86,7 @@ fn main() {
         .add_systems(Update, ui)
         .add_systems(Update, graphics_drawing)
         .insert_resource(NumberOfPoints(0))
-        .insert_resource(PointData(vec![]))
+        .insert_resource(PointData(vec![], String::new()))
         .insert_resource(Distribution(DistributionType::Fibonacci))
         .insert_resource(SimulationTimeSec(1.0))
         .insert_resource(SimulationTimer(Timer::from_seconds(
@@ -93,6 +96,7 @@ fn main() {
         .insert_resource(DrawingHistory(vec![], 0))
         .insert_resource(Algorithm(AlgorithmType::JarvisMarch))
         .insert_resource(TextComment)
+        .insert_resource(PointRadius(10.0))
         .run();
 }
 
@@ -102,7 +106,7 @@ struct ColorText;
 #[derive(Resource)]
 struct TextComment;
 
-const MAX_ZOOM_OUT: f32 = 40.0;
+const MAX_ZOOM_OUT: f32 = 500.0;
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default()).insert(PanCam {
@@ -259,10 +263,11 @@ fn ui(
     mut algorithm: ResMut<Algorithm>,
     mut drawing_history: ResMut<DrawingHistory>,
     text_query: Query<Entity, With<ColorText>>,
+    mut point_radius: ResMut<PointRadius>,
 ) {
     egui::Window::new("Inspector").show(contexts.ctx_mut(), |ui| {
         ui.label("Choose the number of points and the simulation time Δt.");
-        ui.add(egui::Slider::new(&mut number_of_points.0, 0..=10_000).text("Number of points"));
+        ui.add(egui::Slider::new(&mut number_of_points.0, 0..=1_00_000).text("Number of points"));
         if ui
             .add(egui::Slider::new(&mut simulation_time.0, 0.0..=10.0).text("Simulation time (s)"))
             .changed()
@@ -272,6 +277,8 @@ fn ui(
                 .set_duration(std::time::Duration::from_secs_f32(simulation_time.0));
 
         }
+        
+        ui.add(egui::Slider::new(&mut point_radius.0, 1.00..=100.0).text("Point radius"));
 
         ui.separator();
 
@@ -287,6 +294,8 @@ fn ui(
             ],
         );
 
+        ui.text_edit_multiline(&mut point_data.1);
+
         if ui.button("Generate World").clicked() {
             despawn_entities(&mut commands, &point_query);
             despawn_entities(&mut commands, &convex_hull_query);
@@ -295,42 +304,72 @@ fn ui(
             point_data.0.clear();
             drawing_history.0.clear();
 
-            (0..number_of_points.0).for_each(|i| match distribution.0 {
-                DistributionType::Fibonacci => {
-                    let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
-                    let (x, y) = fibonacci_circle(i);
-                    if x.is_nan() || y.is_nan() {
-                        return;
+            if point_data.1.is_empty() {
+                (0..=number_of_points.0).for_each(|i| match distribution.0 {
+                    DistributionType::Fibonacci => {
+                        let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
+                        let (x, y) = fibonacci_circle(i);
+                        if x.is_nan() || y.is_nan() {
+                            return;
+                        }
+    
+                        point_data.0.push(Vec2::new(x, y));
+    
+                        commands.spawn((
+                            MaterialMesh2dBundle {
+                                mesh: Mesh2dHandle(meshes.add(Circle { radius: point_radius.0 })),
+                                material: materials.add(color),
+                                transform: Transform::from_xyz(x, y, 0.0),
+                                ..default()
+                            },
+                            PointSingle,
+                        ));
                     }
+                    DistributionType::Random => {
+                        let (x, y) = bounded_random(number_of_points.0);
+                        let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
+                        point_data.0.push(Vec2::new(x, y));
+    
+                        commands.spawn((
+                            MaterialMesh2dBundle {
+                                mesh: Mesh2dHandle(meshes.add(Circle { radius: point_radius.0 })),
+                                material: materials.add(color),
+                                transform: Transform::from_xyz(x, y, 0.0),
+                                ..default()
+                            },
+                            PointSingle,
+                        ));
+                    }
+                })
+            } else {
+                let lines_copy = point_data.1.clone();
+                for (index, line) in lines_copy.lines().enumerate() {
+                    let mut split = line.split(',');
+                    let x = split.next().and_then(|s| s.trim().parse::<f32>().ok());
+                    let y = split.next().and_then(|s| s.trim().parse::<f32>().ok());
+                    let color = Color::hsl(360. * index as f32 / point_data.1.len() as f32, 0.95, 0.7);
 
-                    point_data.0.push(Vec2::new(x, y));
+                    match (x, y) {
+                        (Some(x), Some(y)) => {
+                            point_data.0.push(Vec2::new(x, y));
 
-                    commands.spawn((
-                        MaterialMesh2dBundle {
-                            mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
-                            material: materials.add(color),
-                            transform: Transform::from_xyz(x, y, 0.0),
-                            ..default()
-                        },
-                        PointSingle,
-                    ));
+                            commands.spawn((
+                                MaterialMesh2dBundle {
+                                    mesh: Mesh2dHandle(meshes.add(Circle { radius: point_radius.0 })),
+                                    material: materials.add(color),
+                                    transform: Transform::from_xyz(x, y, 0.0),
+                                    ..default()
+                                },
+                                PointSingle,
+                            ));
+                        }
+                        _ => {
+                            eprintln!("Failed to parse line: {}, x: {:?}, y: {:?}", line, x, y);
+                        }
+                    }
                 }
-                DistributionType::Random => {
-                    let (x, y) = bounded_random(number_of_points.0);
-                    let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
-                    point_data.0.push(Vec2::new(x, y));
-
-                    commands.spawn((
-                        MaterialMesh2dBundle {
-                            mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
-                            material: materials.add(color),
-                            transform: Transform::from_xyz(x, y, 0.0),
-                            ..default()
-                        },
-                        PointSingle,
-                    ));
-                }
-            })
+            }
+            
         }
 
         ui.separator();

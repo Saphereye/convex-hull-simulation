@@ -1,8 +1,4 @@
-use std::collections::HashSet;
-
 use bevy::prelude::*;
-
-use crate::TextComment;
 
 #[derive(Resource)]
 pub struct DrawingHistory(pub Vec<Vec<LineType>>, pub usize); // history, current
@@ -211,6 +207,12 @@ pub fn kirk_patrick_seidel(
 ) -> Vec<Vec2> {
     let mut upper_hull_vec = upper_hull(&points, drawing_history, &HullType::UpperHull);
     drawing_history.push(vec![LineType::TextComment("Added upper hull".to_string())]);
+
+    // let mut temp = vec![];
+    // for i in 0..upper_hull_vec.len()-1 {
+    //     temp.push(LineType::PartOfHull(upper_hull_vec[i], upper_hull_vec[i+1]))
+    // }
+    // drawing_history.push(temp);
 
     let mut lower_hull_vec = upper_hull(
         &points
@@ -436,6 +438,7 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
             if !candidates.contains(point2) {
                 candidates.push(**point2);
             }
+
             if !candidates.contains(point1) {
                 candidates.push(**point1);
             }
@@ -457,6 +460,7 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
             if !candidates.contains(point2) {
                 candidates.push(**point2);
             }
+
             if !candidates.contains(point1) {
                 candidates.push(**point1);
             }

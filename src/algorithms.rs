@@ -253,8 +253,41 @@ pub fn kirk_patrick_seidel(
     drawing_history: &mut Vec<Vec<LineType>>,
 ) -> Vec<Vec2> {
     let upper_hull_vec = upper_hull(&points, drawing_history);
+    let mut temp = vec![];
+    for i in 0..upper_hull_vec.len() - 1 {
+        temp.push(LineType::PartOfHull(
+            upper_hull_vec[i],
+            upper_hull_vec[i + 1],
+        ))
+    }
+    temp.push(LineType::TextComment("Added upper hull".to_string()));
+    drawing_history.push(temp);
 
-    todo!("Implement Kirkpatrick Seidel")
+    let mut lower_hull_vec = upper_hull(
+        &points.iter().map(|point| Vec2 {
+            x: point.x,
+            y: -point.y,
+        }).collect(),
+        drawing_history,
+    );
+    lower_hull_vec = lower_hull_vec.iter().map(|point| Vec2 {
+        x: point.x,
+        y: -point.y,
+    }).collect();
+
+    let mut temp = vec![];
+    for i in 0..lower_hull_vec.len() - 1 {
+        temp.push(LineType::PartOfHull(
+            lower_hull_vec[i],
+            lower_hull_vec[i + 1],
+        ))
+    }
+    temp.push(LineType::TextComment("Added lower hull".to_string()));
+    drawing_history.push(temp);
+
+    points
+
+    // todo!("Implement Kirkpatrick Seidel")
 }
 
 fn upper_hull(points: &Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
@@ -298,17 +331,20 @@ fn connect(min: Vec2, max: Vec2, points: &Vec<Vec2>) -> Vec<Vec2> {
     let mut right_points = vec![right];
     right_points.extend(points.iter().filter(|p| p.x > right.x));
 
+    let mut output = vec![];
     if left == min {
-        return vec![left];
+        output.extend(vec![left]);
     } else {
-        return connect(min, left, &left_points);
+        output.extend(connect(min, left, &left_points));
     }
 
     if right == max {
-        return vec![right];
+        output.extend(vec![right]);
     } else {
-        return connect(right, max, &right_points);
+        output.extend(connect(right, max, &right_points));
     }
+
+    return output;
 }
 
 fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
@@ -343,12 +379,16 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
                     candidates.push(*point_i);
                 }
             } else {
-                slopes.push((
-                    point_i,
-                    point_j,
-                    (point_i.y - point_j.y) / (point_i.x - point_j.x),
-                ));
+                if !candidates.contains(&point_j) {
+                    candidates.push(*point_j);
+                }
             }
+        } else {
+            slopes.push((
+                point_i,
+                point_j,
+                (point_i.y - point_j.y) / (point_i.x - point_j.x),
+            ));
         }
     }
 

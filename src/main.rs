@@ -14,14 +14,14 @@
 //! [![](https://mermaid.ink/img/pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA?type=png)](https://mermaid.live/edit#pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA)
 
 use std::fmt::Debug;
+use clipboard::ClipboardProvider;
+use clipboard::ClipboardContext;
 
 use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-    window::PrimaryWindow,
+    input::keyboard::KeyboardInput, prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, window::PrimaryWindow
 };
 use bevy_egui::{
-    egui::{self},
+    egui::{self, KeyboardShortcut},
     EguiContexts, EguiPlugin,
 };
 use bevy_pancam::{PanCam, PanCamPlugin};
@@ -85,6 +85,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, ui)
         .add_systems(Update, graphics_drawing)
+        .add_systems(Update, keyboard_input_system)
         .insert_resource(NumberOfPoints(0))
         .insert_resource(PointData(vec![], String::new()))
         .insert_resource(Distribution(DistributionType::Fibonacci))
@@ -144,6 +145,24 @@ macro_rules! draw_lines {
             $line_type,
         ));
     };
+}
+
+fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMut<PointData>) {
+    let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+
+    if ctrl && input.just_pressed(KeyCode::KeyD) {
+        point_data.1.clear();
+    }
+
+    if ctrl && input.just_pressed(KeyCode::KeyV) {
+        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+        match ctx.get_contents() {
+            Ok(contents) => {
+                point_data.1 = contents;
+            }
+            Err(e) => eprintln!("{:?}", e)
+        }
+    }
 }
 
 fn graphics_drawing(
@@ -294,7 +313,8 @@ fn ui(
             ],
         );
 
-        ui.text_edit_multiline(&mut point_data.1);
+        // ui.text_edit_multiline(&mut point_data.1);
+        ui.code_editor(&mut point_data.1);
 
         if ui.button("Generate World").clicked() {
             despawn_entities(&mut commands, &point_query);

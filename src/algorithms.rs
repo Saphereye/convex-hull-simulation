@@ -2,6 +2,8 @@ use std::collections::HashSet;
 
 use bevy::prelude::*;
 
+use crate::TextComment;
+
 #[derive(Resource)]
 pub struct DrawingHistory(pub Vec<Vec<LineType>>, pub usize); // history, current
 
@@ -15,7 +17,6 @@ pub struct ConvexHull;
 pub enum AlgorithmType {
     JarvisMarch,
     KirkPatrickSeidel,
-    GrahamScan,
 }
 
 #[derive(Resource)]
@@ -146,50 +147,6 @@ fn orientation(p: &Vec2, q: &Vec2, r: &Vec2) -> Orientation {
     Orientation::Counterclockwise
 }
 
-pub fn graham_scan(mut points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
-    warn_once!("Graham scan is wrong");
-    if points.len() < 3 {
-        return Vec::new();
-    }
-
-    // sort points by 'angle'
-    // We can take points[0] as reference point
-    let first_point = points[0];
-    points.sort_by(|a, b| {
-        let a_angle = (a.y - first_point.y).atan2(a.x - first_point.x);
-        let b_angle = (b.y - first_point.y).atan2(b.x - first_point.x);
-        a_angle.partial_cmp(&b_angle).unwrap()
-    });
-
-    let mut hull = vec![first_point];
-    let mut current_index = 1;
-
-    while current_index + 1 != points.len() - 1 {
-        let previous = points[current_index - 1];
-        let current = points[current_index];
-        let next = points[current_index + 1];
-
-        match orientation(&previous, &current, &next) {
-            Orientation::Counterclockwise => {
-                // Add line from previous to current to drawing history
-                hull.push(points[current_index]);
-                drawing_history.push(vec![LineType::Temporary(previous, current)]);
-                current_index += 1;
-            }
-            Orientation::Clockwise => {
-                // Remove current from points
-                points.remove(current_index);
-            }
-            Orientation::Colinear => {
-                // Remove current from points
-                points.remove(current_index);
-            }
-        }
-    }
-
-    points
-}
-
 enum HullType {
     UpperHull,
     LowerHull,
@@ -252,45 +209,42 @@ pub fn kirk_patrick_seidel(
     points: Vec<Vec2>,
     drawing_history: &mut Vec<Vec<LineType>>,
 ) -> Vec<Vec2> {
-    let upper_hull_vec = upper_hull(&points, drawing_history);
-    let mut temp = vec![];
-    for i in 0..upper_hull_vec.len() - 1 {
-        temp.push(LineType::PartOfHull(
-            upper_hull_vec[i],
-            upper_hull_vec[i + 1],
-        ))
-    }
-    temp.push(LineType::TextComment("Added upper hull".to_string()));
-    drawing_history.push(temp);
+    let mut upper_hull_vec = upper_hull(&points, drawing_history, &HullType::UpperHull);
+    drawing_history.push(vec![LineType::TextComment("Added upper hull".to_string())]);
 
     let mut lower_hull_vec = upper_hull(
-        &points.iter().map(|point| Vec2 {
+        &points
+            .iter()
+            .map(|point| Vec2 {
+                x: point.x,
+                y: -point.y,
+            })
+            .collect(),
+        drawing_history,
+        &HullType::LowerHull,
+    );
+    drawing_history.push(vec![LineType::TextComment("Added lower hull".to_string())]);
+    lower_hull_vec = lower_hull_vec
+        .iter()
+        .map(|point| Vec2 {
             x: point.x,
             y: -point.y,
-        }).collect(),
-        drawing_history,
-    );
-    lower_hull_vec = lower_hull_vec.iter().map(|point| Vec2 {
-        x: point.x,
-        y: -point.y,
-    }).collect();
+        })
+        .collect();
 
-    let mut temp = vec![];
-    for i in 0..lower_hull_vec.len() - 1 {
-        temp.push(LineType::PartOfHull(
-            lower_hull_vec[i],
-            lower_hull_vec[i + 1],
-        ))
-    }
-    temp.push(LineType::TextComment("Added lower hull".to_string()));
-    drawing_history.push(temp);
+    drawing_history.push(vec![LineType::TextComment(
+        "Kirkseidel algorithm is complete".to_string(),
+    )]);
 
-    points
-
-    // todo!("Implement Kirkpatrick Seidel")
+    upper_hull_vec.extend(lower_hull_vec);
+    upper_hull_vec
 }
 
-fn upper_hull(points: &Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> Vec<Vec2> {
+fn upper_hull(
+    points: &Vec<Vec2>,
+    drawing_history: &mut Vec<Vec<LineType>>,
+    hull_type: &HullType,
+) -> Vec<Vec2> {
     let min_point = *points
         .iter()
         .min_by(|a, b| {
@@ -308,6 +262,9 @@ fn upper_hull(points: &Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> V
         .unwrap();
 
     if min_point == max_point {
+        drawing_history.push(vec![LineType::TextComment(format!(
+            "Single point convex hull found, returning the point",
+        ))]);
         return vec![min_point];
     }
 
@@ -318,12 +275,43 @@ fn upper_hull(points: &Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>) -> V
             .filter(|p| p.x > min_point.x && p.x < max_point.x),
     );
 
-    return connect(min_point, max_point, &temporary);
+    return connect(min_point, max_point, &temporary, drawing_history, hull_type);
 }
 
-fn connect(min: Vec2, max: Vec2, points: &Vec<Vec2>) -> Vec<Vec2> {
+fn connect(
+    min: Vec2,
+    max: Vec2,
+    points: &Vec<Vec2>,
+    drawing_history: &mut Vec<Vec<LineType>>,
+    hull_type: &HullType,
+) -> Vec<Vec2> {
     let median = median_of_medians(&points.iter().map(|point| point.x).collect());
+    drawing_history.push(vec![
+        LineType::VerticalLine(median),
+        LineType::TextComment(format!("Found the median at {}", median)),
+    ]);
+
     let (left, right) = bridge(points, median);
+    let (drawing_left, drawing_right) = match hull_type {
+        HullType::LowerHull => (
+            Vec2 {
+                x: left.x,
+                y: -left.y,
+            },
+            Vec2 {
+                x: right.x,
+                y: -right.y,
+            },
+        ),
+        _ => (left, right),
+    };
+    drawing_history.push(vec![
+        LineType::PartOfHull(drawing_left, drawing_right),
+        LineType::TextComment(format!(
+            "Found the bridge points {} and {}",
+            drawing_left, drawing_right
+        )),
+    ]);
 
     let mut left_points = vec![left];
     left_points.extend(points.iter().filter(|p| p.x < left.x));
@@ -335,14 +323,28 @@ fn connect(min: Vec2, max: Vec2, points: &Vec<Vec2>) -> Vec<Vec2> {
     if left == min {
         output.extend(vec![left]);
     } else {
-        output.extend(connect(min, left, &left_points));
+        output.extend(connect(min, left, &left_points, drawing_history, hull_type));
     }
 
     if right == max {
         output.extend(vec![right]);
     } else {
-        output.extend(connect(right, max, &right_points));
+        output.extend(connect(
+            right,
+            max,
+            &right_points,
+            drawing_history,
+            hull_type,
+        ));
     }
+
+    let mut temp = vec![];
+    for i in 0..output.len() - 1 {
+        temp.push(LineType::Temporary(output[i], output[i + 1]))
+    }
+    temp.push(LineType::TextComment(
+        "Found the connecting hull".to_string(),
+    ));
 
     return output;
 }
@@ -511,31 +513,6 @@ mod tests {
             Vec2::new(0.0, 0.0),
             Vec2::new(3.0, 0.0),
             Vec2::new(3.0, 3.0),
-        ];
-
-        assert_eq!(hull, expected_hull);
-    }
-
-    #[test]
-    fn test_graham_scan() {
-        let points = vec![
-            Vec2::new(0.0, 3.0),
-            Vec2::new(2.0, 2.0),
-            Vec2::new(1.0, 1.0),
-            Vec2::new(2.0, 1.0),
-            Vec2::new(3.0, 0.0),
-            Vec2::new(0.0, 0.0),
-            Vec2::new(3.0, 3.0),
-        ];
-
-        let mut drawing_history = Vec::new();
-        let hull = graham_scan(points, &mut drawing_history);
-
-        let expected_hull = vec![
-            Vec2::new(0.0, 0.0),
-            Vec2::new(3.0, 0.0),
-            Vec2::new(3.0, 3.0),
-            Vec2::new(0.0, 3.0),
         ];
 
         assert_eq!(hull, expected_hull);

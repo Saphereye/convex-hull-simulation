@@ -102,13 +102,15 @@ struct ColorText;
 #[derive(Resource)]
 struct TextComment;
 
+const MAX_ZOOM_OUT: f32 = 40.0;
+
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default()).insert(PanCam {
         grab_buttons: vec![MouseButton::Left, MouseButton::Middle], // which buttons should drag the camera
         enabled: true,        // when false, controls are disabled. See toggle example.
         zoom_to_cursor: true, // whether to zoom towards the mouse or the center of the screen
         min_scale: 1.,        // prevent the camera from zooming too far in
-        max_scale: Some(40.), // prevent the camera from zooming too far out
+        max_scale: Some(MAX_ZOOM_OUT), // prevent the camera from zooming too far out
         ..default()
     });
 }
@@ -144,6 +146,7 @@ fn graphics_drawing(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut standard_material: ResMut<Assets<StandardMaterial>>,
     time: Res<Time>,
     mut simulation_timer: ResMut<SimulationTimer>,
     gizmo_query: Query<Entity, With<Gizmo>>,
@@ -217,8 +220,8 @@ fn graphics_drawing(
                                 .with_inserted_attribute(
                                     Mesh::ATTRIBUTE_POSITION,
                                     vec![
-                                        [*x, -window.height() * 40.0, 0.0],
-                                        [*x, window.height() * 40.0, 0.0],
+                                        [*x, -window.height() * MAX_ZOOM_OUT, 0.0],
+                                        [*x, window.height() * MAX_ZOOM_OUT, 0.0],
                                     ],
                                 ),
                             ),
@@ -353,7 +356,6 @@ fn ui(
             match algorithm.0 {
                 AlgorithmType::JarvisMarch => jarvis_march(points, &mut drawing_history.0),
                 AlgorithmType::KirkPatrickSeidel => kirk_patrick_seidel(points, &mut drawing_history.0),
-                AlgorithmType::GrahamScan => graham_scan(points, &mut drawing_history.0),
             };
         }
 

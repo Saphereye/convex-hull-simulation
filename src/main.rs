@@ -29,11 +29,10 @@ use bevy::{
     prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, window::PrimaryWindow
 };
 use bevy_egui::{
-    egui::{self, window},
+    egui::{self},
     EguiContexts, EguiPlugin,
 };
 use bevy_pancam::{PanCam, PanCamPlugin};
-use egui_extras::{Column, TableBuilder};
 
 mod algorithms;
 use algorithms::*;
@@ -90,6 +89,7 @@ fn despawn_entities<T: Component>(commands: &mut Commands, query: &Query<Entity,
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, EguiPlugin, PanCamPlugin))
+        .add_event::<ClipboardEvent>()
         .add_systems(Startup, setup)
         .add_systems(Update, ui)
         .add_systems(Update, graphics_drawing)
@@ -127,6 +127,9 @@ fn setup(mut commands: Commands) {
         ..default()
     });
 }
+
+#[derive(Event)]
+struct ClipboardEvent(String);
 
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::PrimitiveTopology;
@@ -176,7 +179,7 @@ fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMu
 
         #[cfg(target_arch = "wasm32")] {
             let _task = spawn_local(async move {
-                let window = web_sys::window().expect("window"); // { obj: val };
+                let window = web_sys::window().expect("window");
                 let nav = window.navigator().clipboard();
                 match nav {
                     Some(a) => {
@@ -184,6 +187,8 @@ fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMu
                         let result = wasm_bindgen_futures::JsFuture::from(p)
                             .await
                             .expect("clipboard populated");
+                        let storage = window.local_storage().unwrap().unwrap();
+                        storage.set_item("clipboard_data", &result.as_string().unwrap()).unwrap();
                         info!("Points pasted");
                     }
                     None => {
@@ -191,6 +196,16 @@ fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMu
                     }
                 };
             });
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")] {
+        let window = web_sys::window().unwrap();
+        let storage = window.local_storage().unwrap().unwrap();
+        if let Ok(Some(data)) = storage.get_item("clipboard_data") {
+            point_data.1 += "\n";
+            point_data.1 += &data;
+            storage.remove_item("clipboard_data").unwrap();
         }
     }
 }

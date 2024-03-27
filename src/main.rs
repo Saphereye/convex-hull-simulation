@@ -14,13 +14,18 @@
 //! [![](https://mermaid.ink/img/pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA?type=png)](https://mermaid.live/edit#pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA)
 
 use std::fmt::Debug;
+
+#[cfg(not(target_arch = "wasm32"))]
 use copypasta::{ClipboardContext, ClipboardProvider};
+
+#[cfg(target_arch = "wasm32")]
+use web_sys::Clipboard;
 
 use bevy::{
     prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, window::PrimaryWindow
 };
 use bevy_egui::{
-    egui::{self},
+    egui::{self, window},
     EguiContexts, EguiPlugin,
 };
 use bevy_pancam::{PanCam, PanCamPlugin};
@@ -154,13 +159,31 @@ fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMu
     }
 
     if ctrl && input.just_pressed(KeyCode::KeyV) {
-        let mut ctx = ClipboardContext::new().unwrap();
-        match ctx.get_contents() {
-            Ok(contents) => {
-                point_data.1 += "\n";
-                point_data.1 += &contents;
+        #[cfg(not(target_arch = "wasm32"))] {
+            let mut ctx = ClipboardContext::new().unwrap();
+            match ctx.get_contents() {
+                Ok(contents) => {
+                    point_data.1 += "\n";
+                    point_data.1 += &contents;
+                }
+                Err(e) => eprintln!("{:?}", e)
             }
-            Err(e) => eprintln!("{:?}", e)
+        }
+
+        #[cfg(target_arch = "wasm32")] {
+            let window = web_sys::window().expect("No global `window` exists");
+            let navigator = window.navigator();
+            let clipboard = navigator.clipboard().expect("Clipboard is not available");
+            clipboard.read_text().then(|res| {
+                match res {
+                    Ok(contents) => {
+                        point_data.1 += "\n";
+                        point_data.1 += &contents;
+                    }
+                    Err(e) => eprintln!("{:?}", e)
+                }
+                Ok(())
+            });
         }
     }
 }

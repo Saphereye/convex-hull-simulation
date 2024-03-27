@@ -247,21 +247,29 @@ fn upper_hull(
     drawing_history: &mut Vec<Vec<LineType>>,
     hull_type: &HullType,
 ) -> Vec<Vec2> {
-    let min_point = *points
-        .iter()
-        .min_by(|a, b| {
-            a.x.partial_cmp(&b.x)
-                .unwrap_or_else(|| a.y.partial_cmp(&b.y).unwrap())
-        })
-        .unwrap();
+    println!("Finding upper hull for points: {:?}", points);
 
-    let max_point = *points
-        .iter()
-        .max_by(|a, b| {
-            a.x.partial_cmp(&b.x)
-                .unwrap_or_else(|| a.y.partial_cmp(&b.y).unwrap())
-        })
-        .unwrap();
+    let mut min_point = Vec2 { x: f32::MAX, y: f32::MIN };
+    for i in points.iter() {
+        if i.x < min_point.x {
+            min_point = *i;
+        } else if i.x == min_point.x && i.y > min_point.y {
+            min_point = *i;
+        }
+    }
+
+    println!("Min point: {:?}", min_point);
+
+    let mut max_point = Vec2 {x: f32::MIN, y: f32::MAX};
+    for i in points.iter() {
+        if i.x > max_point.x {
+            max_point = *i;
+        } else if i.x == max_point.x && i.y > max_point.y {
+            max_point = *i;
+        }
+    }
+
+    println!("Max point: {:?}", max_point);
 
     if min_point == max_point {
         drawing_history.push(vec![LineType::TextComment(format!(
@@ -287,6 +295,7 @@ fn connect(
     drawing_history: &mut Vec<Vec<LineType>>,
     hull_type: &HullType,
 ) -> Vec<Vec2> {
+    println!("Connecting points: {:?}", points);
     let median = median_of_medians(&points.iter().map(|point| point.x).collect());
     drawing_history.push(vec![
         LineType::VerticalLine(median),
@@ -294,6 +303,7 @@ fn connect(
     ]);
 
     let (left, right) = bridge(points, median);
+    println!("Bridge points: {} and {}", left, right);
     let (drawing_left, drawing_right) = match hull_type {
         HullType::LowerHull => (
             Vec2 {

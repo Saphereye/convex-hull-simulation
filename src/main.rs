@@ -14,14 +14,13 @@
 //! [![](https://mermaid.ink/img/pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA?type=png)](https://mermaid.live/edit#pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA)
 
 use std::fmt::Debug;
-use clipboard::ClipboardProvider;
-use clipboard::ClipboardContext;
+use copypasta::{ClipboardContext, ClipboardProvider};
 
 use bevy::{
-    input::keyboard::KeyboardInput, prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, window::PrimaryWindow
+    prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, window::PrimaryWindow
 };
 use bevy_egui::{
-    egui::{self, KeyboardShortcut},
+    egui::{self},
     EguiContexts, EguiPlugin,
 };
 use bevy_pancam::{PanCam, PanCamPlugin};
@@ -155,10 +154,11 @@ fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMu
     }
 
     if ctrl && input.just_pressed(KeyCode::KeyV) {
-        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+        let mut ctx = ClipboardContext::new().unwrap();
         match ctx.get_contents() {
             Ok(contents) => {
-                point_data.1 = contents;
+                point_data.1 += "\n";
+                point_data.1 += &contents;
             }
             Err(e) => eprintln!("{:?}", e)
         }
@@ -169,14 +169,13 @@ fn graphics_drawing(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut standard_material: ResMut<Assets<StandardMaterial>>,
     time: Res<Time>,
     mut simulation_timer: ResMut<SimulationTimer>,
     gizmo_query: Query<Entity, With<Gizmo>>,
     text_query: Query<Entity, With<ColorText>>,
     convex_hull_query: Query<Entity, With<ConvexHull>>,
     mut drawing_history: ResMut<DrawingHistory>,
-    mut window: Query<&mut Window, With<PrimaryWindow>>,
+    window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     let window = window.single();
     if drawing_history.0.is_empty() || drawing_history.0.len() == drawing_history.1 {

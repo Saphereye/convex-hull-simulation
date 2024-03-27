@@ -21,6 +21,10 @@ use copypasta::{ClipboardContext, ClipboardProvider};
 #[cfg(target_arch = "wasm32")]
 use web_sys::Clipboard;
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_futures::spawn_local;
+
+
 use bevy::{
     prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, window::PrimaryWindow
 };
@@ -171,18 +175,21 @@ fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMu
         }
 
         #[cfg(target_arch = "wasm32")] {
-            let window = web_sys::window().expect("No global `window` exists");
-            let navigator = window.navigator();
-            let clipboard = navigator.clipboard().expect("Clipboard is not available");
-            clipboard.read_text().then(|res| {
-                match res {
-                    Ok(contents) => {
-                        point_data.1 += "\n";
-                        point_data.1 += &contents;
+            let _task = spawn_local(async move {
+                let window = web_sys::window().expect("window"); // { obj: val };
+                let nav = window.navigator().clipboard();
+                match nav {
+                    Some(a) => {
+                        let p = a.read_text();
+                        let result = wasm_bindgen_futures::JsFuture::from(p)
+                            .await
+                            .expect("clipboard populated");
+                        info!("Points pasted");
                     }
-                    Err(e) => eprintln!("{:?}", e)
-                }
-                Ok(())
+                    None => {
+                        warn!("Point pasting didn't work");
+                    }
+                };
             });
         }
     }
@@ -439,56 +446,5 @@ fn ui(
                 AlgorithmType::KirkPatrickSeidel => kirk_patrick_seidel(points, &mut drawing_history.0),
             };
         }
-
-        ui.separator();
-        TableBuilder::new(ui)
-            .column(Column::auto())
-            .column(Column::remainder())
-            .header(20.0, |mut header| {
-                header.col(|ui| {
-                    ui.heading("Name");
-                });
-                header.col(|ui| {
-                    ui.heading("ID");
-                });
-            })
-            .body(|mut body| {
-                body.row(30.0, |mut row| {
-                    row.col(|ui| {
-                        ui.label("Adarsh Das");
-                    });
-                    row.col(|ui| {
-                        ui.label("2021A7PS1511H");
-                    });
-                });
-
-                body.row(30.0, |mut row| {
-                    row.col(|ui| {
-                        ui.label("Divyateja Pasupuleti");
-                    });
-                    row.col(|ui| {
-                        ui.label("2021A7PS0075H");
-                    });
-                });
-
-                body.row(30.0, |mut row| {
-                    row.col(|ui| {
-                        ui.label("Manan Gupta");
-                    });
-                    row.col(|ui| {
-                        ui.label("2021A7PS2091H");
-                    });
-                });
-
-                body.row(30.0, |mut row| {
-                    row.col(|ui| {
-                        ui.label("Kumarasamy Chelliah");
-                    });
-                    row.col(|ui| {
-                        ui.label("2021A7PS0096H");
-                    });
-                });
-
-            });
     });
 }

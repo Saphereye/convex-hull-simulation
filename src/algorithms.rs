@@ -26,6 +26,74 @@ pub enum LineType {
     ClearScreen,
 }
 
+const FLOATING_POINT_ERROR: f32 = 0.0;
+
+use std::cmp::Ordering;
+
+trait AlmostEq {
+    fn almost_eq(&self, other: &Self) -> bool;
+    fn almost_cmp(&self, other: &Self) -> Ordering;
+}
+
+impl AlmostEq for f32 {
+    fn almost_eq(&self, other: &Self) -> bool {
+        (self - other).abs() < FLOATING_POINT_ERROR
+    }
+
+    fn almost_cmp(&self, other: &Self) -> Ordering {
+        if self.almost_eq(other) {
+            Ordering::Equal
+        } else if self < other {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        }
+    }
+}
+
+impl AlmostEq for &f32 {
+    fn almost_eq(&self, other: &Self) -> bool {
+        (*self - **other).abs() < FLOATING_POINT_ERROR
+    }
+
+    fn almost_cmp(&self, other: &Self) -> Ordering {
+        if self.almost_eq(other) {
+            Ordering::Equal
+        } else if *self < *other {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        }
+    }
+}
+
+impl AlmostEq for Vec2 {
+    fn almost_eq(&self, other: &Self) -> bool {
+        (self.x - other.x).abs() < FLOATING_POINT_ERROR
+            && (self.y - other.y).abs() < FLOATING_POINT_ERROR
+    }
+
+    fn almost_cmp(&self, other: &Self) -> Ordering {
+        let x_ordering = if self.x.almost_eq(&other.x) {
+            Ordering::Equal
+        } else if self.x < other.x {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        };
+
+        let y_ordering = if self.y.almost_eq(&other.y) {
+            Ordering::Equal
+        } else if self.y < other.y {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        };
+
+        x_ordering.then(y_ordering)
+    }
+}
+
 /// # Implementation of the [Jarvis March](https://en.wikipedia.org/wiki/Gift_wrapping_algorithm) algorithm (Gift-Wrapping algorithm)
 /// This algorithm is used to calculate the convex hull of given set of points.
 /// It has a `O(nh)` time complexity, where `n` is the number of points and `h` is the number of points on the convex hull.
@@ -235,26 +303,22 @@ pub fn kirk_patrick_seidel(
         .collect();
 
     // Time to merge lower and upper hull
-    let upper_hull_max = upper_hull_vec
+    let upper_hull_max = *upper_hull_vec
         .iter()
         .max_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap()
-        .clone();
-    let upper_hull_min = upper_hull_vec
+        .unwrap();
+    let upper_hull_min = *upper_hull_vec
         .iter()
         .min_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap()
-        .clone();
-    let lower_hull_max = lower_hull_vec
+        .unwrap();
+    let lower_hull_max = *lower_hull_vec
         .iter()
         .max_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap()
-        .clone();
-    let lower_hull_min = lower_hull_vec
+        .unwrap();
+    let lower_hull_min = *lower_hull_vec
         .iter()
         .min_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap()
-        .clone();
+        .unwrap();
 
     if upper_hull_max.x == lower_hull_max.x {
         upper_hull_vec.push(lower_hull_max);
@@ -298,9 +362,7 @@ fn upper_hull(
         y: f32::MIN,
     };
     for i in points.iter() {
-        if i.x < min_point.x {
-            min_point = *i;
-        } else if i.x == min_point.x && i.y > min_point.y {
+        if i.x < min_point.x || (i.x.almost_eq(&min_point.x) && i.y > min_point.y) {
             min_point = *i;
         }
     }
@@ -312,19 +374,17 @@ fn upper_hull(
         y: f32::MAX,
     };
     for i in points.iter() {
-        if i.x > max_point.x {
-            max_point = *i;
-        } else if i.x == max_point.x && i.y > max_point.y {
+        if i.x > max_point.x || (i.x.almost_eq(&max_point.x) && i.y > max_point.y) {
             max_point = *i;
         }
     }
 
     println!("Max point: {:?}", max_point);
 
-    if min_point == max_point {
-        drawing_history.push(vec![LineType::TextComment(format!(
-            "Single point convex hull found, returning the point",
-        ))]);
+    if min_point.almost_eq(&max_point) {
+        drawing_history.push(vec![LineType::TextComment(
+            "Single point convex hull found, returning the point".to_string(),
+        )]);
         return vec![min_point];
     }
 
@@ -335,7 +395,7 @@ fn upper_hull(
             .filter(|p| p.x > min_point.x && p.x < max_point.x),
     );
 
-    return connect(min_point, max_point, &temporary, drawing_history, hull_type);
+    connect(min_point, max_point, &temporary, drawing_history, hull_type)
 }
 
 fn connect(
@@ -382,13 +442,13 @@ fn connect(
     right_points.extend(points.iter().filter(|p| p.x > right.x));
 
     let mut output = vec![];
-    if left == min {
+    if left.almost_eq(&min) {
         output.extend(vec![left]);
     } else {
         output.extend(connect(min, left, &left_points, drawing_history, hull_type));
     }
 
-    if right == max {
+    if right.almost_eq(&max) {
         output.extend(vec![right]);
     } else {
         output.extend(connect(
@@ -408,7 +468,7 @@ fn connect(
         "Found the connecting hull".to_string(),
     ));
 
-    return output;
+    output
 }
 
 fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
@@ -421,7 +481,7 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
         };
     }
 
-    let mut sorted_points = points.clone();
+    let mut sorted_points = points.to_owned();
     sorted_points.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
 
     let mut pairs: Vec<(Vec2, Vec2)> = Vec::new();
@@ -437,15 +497,13 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
     let mut slopes = vec![];
 
     for (point_i, point_j) in pairs.iter() {
-        if point_i.x == point_j.x {
+        if point_i.x.almost_eq(&point_j.x) {
             if point_i.y > point_j.y {
-                if !candidates.contains(&point_i) {
+                if !candidates.contains(point_i) {
                     candidates.push(*point_i);
                 }
-            } else {
-                if !candidates.contains(&point_j) {
-                    candidates.push(*point_j);
-                }
+            } else if !candidates.contains(point_j) {
+                candidates.push(*point_j);
             }
         } else {
             slopes.push((
@@ -527,16 +585,16 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
         }
     }
 
-    return bridge(&candidates, median);
+    bridge(&candidates, median)
 }
 
-pub fn median_of_medians<T: Clone + Copy + PartialOrd>(nums: &Vec<T>) -> T {
+pub fn median_of_medians<T: Clone + Copy + PartialOrd + AlmostEq>(nums: &Vec<T>) -> T {
     match nums.len() {
         0 => panic!("No median of an empty list"),
         1 => nums[0],
         2..=5 => {
             let mut nums = nums.clone();
-            nums.sort_by(|a, b| a.partial_cmp(&b).unwrap());
+            nums.sort_by(|a, b| a.almost_cmp(&b));
             nums[nums.len() / 2]
         }
         _ => median_of_medians(
@@ -545,7 +603,7 @@ pub fn median_of_medians<T: Clone + Copy + PartialOrd>(nums: &Vec<T>) -> T {
                 .chunks(5)
                 .map(|chunk| {
                     let mut chunk = chunk.to_vec();
-                    chunk.sort_by(|a, b| a.partial_cmp(&b).unwrap());
+                    chunk.sort_by(|a, b| a.almost_cmp(&b));
                     chunk[chunk.len() / 2]
                 })
                 .collect::<Vec<T>>(),

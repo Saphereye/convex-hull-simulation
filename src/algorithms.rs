@@ -234,6 +234,50 @@ pub fn kirk_patrick_seidel(
         })
         .collect();
 
+    // Time to merge lower and upper hull
+    let upper_hull_max = upper_hull_vec
+        .iter()
+        .max_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
+        .unwrap()
+        .clone();
+    let upper_hull_min = upper_hull_vec
+        .iter()
+        .min_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
+        .unwrap()
+        .clone();
+    let lower_hull_max = lower_hull_vec
+        .iter()
+        .max_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
+        .unwrap()
+        .clone();
+    let lower_hull_min = lower_hull_vec
+        .iter()
+        .min_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
+        .unwrap()
+        .clone();
+
+    if upper_hull_max.x == lower_hull_max.x {
+        upper_hull_vec.push(lower_hull_max);
+        drawing_history.push(vec![
+            LineType::PartOfHull(upper_hull_max, lower_hull_max),
+            LineType::TextComment(format!(
+                "Adding right vertical edge between {} and {}",
+                upper_hull_max, lower_hull_max
+            )),
+        ]);
+    }
+
+    if upper_hull_min.x == lower_hull_min.x {
+        upper_hull_vec.push(lower_hull_min);
+        drawing_history.push(vec![
+            LineType::PartOfHull(upper_hull_min, lower_hull_min),
+            LineType::TextComment(format!(
+                "Adding left vertical edge between {} and {}",
+                upper_hull_min, lower_hull_min
+            )),
+        ]);
+    }
+
     drawing_history.push(vec![LineType::TextComment(
         "Kirkseidel algorithm is complete".to_string(),
     )]);
@@ -249,7 +293,10 @@ fn upper_hull(
 ) -> Vec<Vec2> {
     println!("Finding upper hull for points: {:?}", points);
 
-    let mut min_point = Vec2 { x: f32::MAX, y: f32::MIN };
+    let mut min_point = Vec2 {
+        x: f32::MAX,
+        y: f32::MIN,
+    };
     for i in points.iter() {
         if i.x < min_point.x {
             min_point = *i;
@@ -260,7 +307,10 @@ fn upper_hull(
 
     println!("Min point: {:?}", min_point);
 
-    let mut max_point = Vec2 {x: f32::MIN, y: f32::MAX};
+    let mut max_point = Vec2 {
+        x: f32::MIN,
+        y: f32::MAX,
+    };
     for i in points.iter() {
         if i.x > max_point.x {
             max_point = *i;

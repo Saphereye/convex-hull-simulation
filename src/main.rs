@@ -297,7 +297,7 @@ fn ui(
 
         }
         
-        ui.add(egui::Slider::new(&mut point_radius.0, 1.00..=100.0).text("Point radius"));
+        ui.add(egui::Slider::new(&mut point_radius.0, 1.00..=1000.0).text("Point radius"));
 
         ui.separator();
 

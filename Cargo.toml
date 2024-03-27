@@ -7,15 +7,11 @@ edition = "2021"
 
 [dependencies]
 bevy = {version = "0.13.0"} 
-bevy_egui = "0.25.0"
+bevy_egui = { version = "0.25.0", features = ["manage_clipboard"] }
 bevy_pancam = "0.11.0"
 copypasta = "0.10.1"
 egui_extras = "0.26.2"
 rand = "0.8.5"
-
-[dependencies.web-sys]
-version = "0.3"
-features = ["Clipboard", "Window", "Navigator", "Permissions"]
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
@@ -24,9 +20,3 @@ opt-level = 1
 # Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]
 opt-level = 3
-
-[target.wasm32-unknown-unknown]
-runner = "wasm-server-runner"
-
-[build]
-rustflags = ["--cfg=web_sys_unstable_apis"]

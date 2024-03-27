@@ -1457,7 +1457,6 @@ dependencies = [
  "copypasta",
  "egui_extras",
  "rand",
- "web-sys",
 ]
 
 [[package]]

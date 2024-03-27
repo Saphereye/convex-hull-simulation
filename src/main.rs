@@ -15,22 +15,11 @@
 
 use std::fmt::Debug;
 
-#[cfg(not(target_arch = "wasm32"))]
-use copypasta::{ClipboardContext, ClipboardProvider};
-
-#[cfg(target_arch = "wasm32")]
-use web_sys::Clipboard;
-
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen_futures::spawn_local;
-
-
 use bevy::{
     prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, window::PrimaryWindow
 };
 use bevy_egui::{
-    egui::{self},
-    EguiContexts, EguiPlugin,
+    egui, systems::InputResources, EguiContexts, EguiPlugin
 };
 use bevy_pancam::{PanCam, PanCamPlugin};
 
@@ -89,7 +78,6 @@ fn despawn_entities<T: Component>(commands: &mut Commands, query: &Query<Entity,
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, EguiPlugin, PanCamPlugin))
-        .add_event::<ClipboardEvent>()
         .add_systems(Startup, setup)
         .add_systems(Update, ui)
         .add_systems(Update, graphics_drawing)
@@ -128,9 +116,6 @@ fn setup(mut commands: Commands) {
     });
 }
 
-#[derive(Event)]
-struct ClipboardEvent(String);
-
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::PrimitiveTopology;
 
@@ -143,22 +128,22 @@ macro_rules! draw_lines {
         };
 
         $commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: Mesh2dHandle(
-                    $meshes.add(
-                        Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
-                            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, $line),
-                    ),
-                ),
-                material: $materials.add(color),
-                ..default()
-            },
-            $line_type,
+                MaterialMesh2dBundle {
+                    mesh: Mesh2dHandle(
+                              $meshes.add(
+                                  Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
+                                  .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, $line),
+                              ),
+                          ),
+                          material: $materials.add(color),
+                          ..default()
+                },
+                $line_type,
         ));
     };
 }
 
-fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMut<PointData>) {
+fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMut<PointData>, egui_resources: InputResources) {
     let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
 
     if ctrl && input.just_pressed(KeyCode::KeyD) {
@@ -166,48 +151,16 @@ fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMu
     }
 
     if ctrl && input.just_pressed(KeyCode::KeyV) {
-        #[cfg(not(target_arch = "wasm32"))] {
-            let mut ctx = ClipboardContext::new().unwrap();
-            match ctx.get_contents() {
-                Ok(contents) => {
-                    point_data.1 += "\n";
-                    point_data.1 += &contents;
-                }
-                Err(e) => eprintln!("{:?}", e)
+        let clipboard = egui_resources.egui_clipboard;
+        match clipboard.get_contents() {
+            Some(contents) => {
+                point_data.1 += "\n";
+                point_data.1 += &contents;
             }
-        }
-
-        #[cfg(target_arch = "wasm32")] {
-            let _task = spawn_local(async move {
-                let window = web_sys::window().expect("window");
-                let nav = window.navigator().clipboard();
-                match nav {
-                    Some(a) => {
-                        let p = a.read_text();
-                        let result = wasm_bindgen_futures::JsFuture::from(p)
-                            .await
-                            .expect("clipboard populated");
-                        let storage = window.local_storage().unwrap().unwrap();
-                        storage.set_item("clipboard_data", &result.as_string().unwrap()).unwrap();
-                        info!("Points pasted");
-                    }
-                    None => {
-                        warn!("Point pasting didn't work");
-                    }
-                };
-            });
+            None => warn!("Clipboard is empty"),
         }
     }
 
-    #[cfg(target_arch = "wasm32")] {
-        let window = web_sys::window().unwrap();
-        let storage = window.local_storage().unwrap().unwrap();
-        if let Ok(Some(data)) = storage.get_item("clipboard_data") {
-            point_data.1 += "\n";
-            point_data.1 += &data;
-            storage.remove_item("clipboard_data").unwrap();
-        }
-    }
 }
 
 fn graphics_drawing(

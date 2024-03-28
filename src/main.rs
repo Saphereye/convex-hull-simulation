@@ -16,10 +16,15 @@
 use std::fmt::Debug;
 
 use bevy::{
-    prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, window::PrimaryWindow
+    ecs::world,
+    prelude::*,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    window::PrimaryWindow,
 };
 use bevy_egui::{
-    egui, systems::InputResources, EguiContexts, EguiPlugin
+    egui::{self},
+    systems::InputResources,
+    EguiContexts, EguiPlugin,
 };
 use bevy_pancam::{PanCam, PanCamPlugin};
 
@@ -32,20 +37,13 @@ use distributions::*;
 #[derive(Component)]
 struct PointSingle;
 
-#[derive(Resource)]
-struct NumberOfPoints(usize);
-
-#[derive(Resource)]
-struct SimulationTimeSec(f32);
-
+/// The points | text input | point radius | # of points | can add manually
 #[derive(Resource, Debug)]
-struct PointData(Vec<Vec2>, String);
+struct PointData(Vec<Vec2>, String, f32, usize, bool);
 
+/// The timer for simulation, time step of simulation
 #[derive(Resource)]
-struct SimulationTimer(Timer);
-
-#[derive(Resource)]
-struct PointRadius(f32);
+struct SimulationTimer(Timer, f32);
 
 fn create_combo_box<T: PartialEq + Copy>(
     ui: &mut egui::Ui,
@@ -82,18 +80,19 @@ fn main() {
         .add_systems(Update, ui)
         .add_systems(Update, graphics_drawing)
         .add_systems(Update, keyboard_input_system)
-        .insert_resource(NumberOfPoints(0))
-        .insert_resource(PointData(vec![], String::new()))
+        .add_systems(Update, mouse_position_system)
+        .add_systems(Update, check_egui_wants_focus)
+        .add_systems(Update, pan_cam_system)
+        .insert_resource(PointData(vec![], String::new(), 10.0, 0, false))
         .insert_resource(Distribution(DistributionType::Fibonacci))
-        .insert_resource(SimulationTimeSec(1.0))
-        .insert_resource(SimulationTimer(Timer::from_seconds(
+        .insert_resource(SimulationTimer(
+            Timer::from_seconds(1.0, TimerMode::Repeating),
             1.0,
-            TimerMode::Repeating,
-        )))
+        ))
         .insert_resource(DrawingHistory(vec![], 0))
         .insert_resource(Algorithm(AlgorithmType::JarvisMarch))
         .insert_resource(TextComment)
-        .insert_resource(PointRadius(10.0))
+        .insert_resource(EguiWantsFocus(false))
         .run();
 }
 
@@ -128,22 +127,32 @@ macro_rules! draw_lines {
         };
 
         $commands.spawn((
-                MaterialMesh2dBundle {
-                    mesh: Mesh2dHandle(
-                              $meshes.add(
-                                  Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
-                                  .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, $line),
-                              ),
-                          ),
-                          material: $materials.add(color),
-                          ..default()
-                },
-                $line_type,
+            MaterialMesh2dBundle {
+                mesh: Mesh2dHandle(
+                    $meshes.add(
+                        Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
+                            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, $line),
+                    ),
+                ),
+                material: $materials.add(color),
+                ..default()
+            },
+            $line_type,
         ));
     };
 }
 
-fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMut<PointData>, egui_resources: InputResources) {
+fn pan_cam_system(egui_wants_focus: Res<EguiWantsFocus>, mut pan_cam: Query<&mut PanCam>) {
+    for mut cam in pan_cam.iter_mut() {
+        cam.enabled = !egui_wants_focus.0;
+    }
+}
+
+fn keyboard_input_system(
+    input: Res<ButtonInput<KeyCode>>,
+    mut point_data: ResMut<PointData>,
+    egui_resources: InputResources,
+) {
     let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
 
     if ctrl && input.just_pressed(KeyCode::KeyD) {
@@ -160,7 +169,6 @@ fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>, mut point_data: ResMu
             None => warn!("Clipboard is empty"),
         }
     }
-
 }
 
 fn graphics_drawing(
@@ -263,38 +271,106 @@ fn graphics_drawing(
     drawing_history.1 += 1;
 }
 
+#[derive(Resource, Deref, DerefMut, PartialEq, Eq, Default)]
+struct EguiWantsFocus(bool);
+
+fn check_egui_wants_focus(
+    mut contexts: Query<&mut bevy_egui::EguiContext>,
+    mut wants_focus: ResMut<EguiWantsFocus>,
+) {
+    let ctx = contexts.iter_mut().next();
+    let new_wants_focus = if let Some(ctx) = ctx {
+        let ctx = ctx.into_inner().get_mut();
+        ctx.wants_pointer_input() || ctx.wants_keyboard_input()
+    } else {
+        false
+    };
+    wants_focus.set_if_neq(EguiWantsFocus(new_wants_focus));
+}
+
+fn mouse_position_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut point_data: ResMut<PointData>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut window: Query<&mut Window, With<PrimaryWindow>>,
+    camera_query: Query<(&GlobalTransform, &Camera), With<Camera>>,
+    egui_wants_focus: Res<EguiWantsFocus>,
+) {
+    if egui_wants_focus.0 {
+        return;
+    }
+
+    if !point_data.4 {
+        return;
+    }
+
+    let window = window.single_mut();
+    let (camera_transform, camera) = camera_query.single();
+
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        let world_position = window
+            .cursor_position()
+            .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
+            .map(|ray| ray.origin.truncate())
+            .unwrap();
+
+        point_data
+            .0
+            .push(Vec2::new(world_position.x as f32, world_position.y as f32));
+        point_data.3 += 1;
+
+        let color = Color::WHITE;
+
+        commands.spawn((
+            MaterialMesh2dBundle {
+                mesh: Mesh2dHandle(meshes.add(Circle {
+                    radius: point_data.2,
+                })),
+                material: materials.add(color),
+                transform: Transform::from_xyz(
+                    world_position.x as f32,
+                    world_position.y as f32,
+                    0.0,
+                ),
+                ..default()
+            },
+            PointSingle,
+        ));
+    }
+}
+
 fn ui(
     mut contexts: EguiContexts,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    point_query: Query<Entity, With<PointSingle>>,
-    convex_hull_query: Query<Entity, With<ConvexHull>>,
-    mut number_of_points: ResMut<NumberOfPoints>,
     mut point_data: ResMut<PointData>,
     mut distribution: ResMut<Distribution>,
-    gizmo_query: Query<Entity, With<Gizmo>>,
-    mut simulation_time: ResMut<SimulationTimeSec>,
     mut simulation_timer: ResMut<SimulationTimer>,
     mut algorithm: ResMut<Algorithm>,
     mut drawing_history: ResMut<DrawingHistory>,
+    point_query: Query<Entity, With<PointSingle>>,
+    convex_hull_query: Query<Entity, With<ConvexHull>>,
+    gizmo_query: Query<Entity, With<Gizmo>>,
     text_query: Query<Entity, With<ColorText>>,
-    mut point_radius: ResMut<PointRadius>,
 ) {
     egui::Window::new("Inspector").show(contexts.ctx_mut(), |ui| {
         ui.label("Choose the number of points and the simulation time Δt.");
-        ui.add(egui::Slider::new(&mut number_of_points.0, 0..=1_00_000).text("Number of points"));
+        ui.add(egui::Slider::new(&mut point_data.3, 0..=1_00_000).text("Number of points"));
         if ui
-            .add(egui::Slider::new(&mut simulation_time.0, 0.0..=10.0).text("Simulation time (s)"))
+            .add(egui::Slider::new(&mut simulation_timer.1, 0.0..=10.0).text("Simulation time (s)"))
             .changed()
         {
+            let simulation_timer_time = simulation_timer.1;
             simulation_timer
                 .0
-                .set_duration(std::time::Duration::from_secs_f32(simulation_time.0));
+                .set_duration(std::time::Duration::from_secs_f32(simulation_timer_time));
 
         }
         
-        ui.add(egui::Slider::new(&mut point_radius.0, 1.00..=1000.0).text("Point radius"));
+        ui.add(egui::Slider::new(&mut point_data.2, 1.00..=1000.0).text("Point radius"));
 
         ui.separator();
 
@@ -310,6 +386,8 @@ fn ui(
             ],
         );
 
+        ui.checkbox(&mut point_data.4, "Manually add points");
+
         // ui.text_edit_multiline(&mut point_data.1);
         ui.code_editor(&mut point_data.1);
 
@@ -322,9 +400,9 @@ fn ui(
             drawing_history.0.clear();
 
             if point_data.1.is_empty() {
-                (0..=number_of_points.0).for_each(|i| match distribution.0 {
+                (0..=point_data.3).for_each(|i| match distribution.0 {
                     DistributionType::Fibonacci => {
-                        let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
+                        let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);
                         let (x, y) = fibonacci_circle(i);
                         if x.is_nan() || y.is_nan() {
                             return;
@@ -334,7 +412,7 @@ fn ui(
     
                         commands.spawn((
                             MaterialMesh2dBundle {
-                                mesh: Mesh2dHandle(meshes.add(Circle { radius: point_radius.0 })),
+                                mesh: Mesh2dHandle(meshes.add(Circle { radius: point_data.2 })),
                                 material: materials.add(color),
                                 transform: Transform::from_xyz(x, y, 0.0),
                                 ..default()
@@ -343,13 +421,13 @@ fn ui(
                         ));
                     }
                     DistributionType::Random => {
-                        let (x, y) = bounded_random(number_of_points.0);
-                        let color = Color::hsl(360. * i as f32 / number_of_points.0 as f32, 0.95, 0.7);
+                        let (x, y) = bounded_random(point_data.3);
+                        let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);
                         point_data.0.push(Vec2::new(x, y));
     
                         commands.spawn((
                             MaterialMesh2dBundle {
-                                mesh: Mesh2dHandle(meshes.add(Circle { radius: point_radius.0 })),
+                                mesh: Mesh2dHandle(meshes.add(Circle { radius: point_data.2 })),
                                 material: materials.add(color),
                                 transform: Transform::from_xyz(x, y, 0.0),
                                 ..default()
@@ -372,7 +450,7 @@ fn ui(
 
                             commands.spawn((
                                 MaterialMesh2dBundle {
-                                    mesh: Mesh2dHandle(meshes.add(Circle { radius: point_radius.0 })),
+                                    mesh: Mesh2dHandle(meshes.add(Circle { radius: point_data.2 })),
                                     material: materials.add(color),
                                     transform: Transform::from_xyz(x, y, 0.0),
                                     ..default()

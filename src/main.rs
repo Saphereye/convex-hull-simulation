@@ -281,7 +281,7 @@ fn check_egui_wants_focus(
     let ctx = contexts.iter_mut().next();
     let new_wants_focus = if let Some(ctx) = ctx {
         let ctx = ctx.into_inner().get_mut();
-        ctx.wants_pointer_input() || ctx.wants_keyboard_input()
+        ctx.is_pointer_over_area()
     } else {
         false
     };
@@ -385,6 +385,15 @@ fn ui(
                 ("Random", DistributionType::Random),
             ],
         );
+
+        if ui.button("Clear world").clicked() {
+            despawn_entities(&mut commands, &point_query);
+            despawn_entities(&mut commands, &convex_hull_query);
+            despawn_entities(&mut commands, &gizmo_query);
+            despawn_entities(&mut commands, &text_query);
+            point_data.0.clear();
+            drawing_history.0.clear();
+        }
 
         ui.checkbox(&mut point_data.4, "Manually add points");
 

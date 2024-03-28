@@ -208,12 +208,6 @@ pub fn kirk_patrick_seidel(
     let mut upper_hull_vec = upper_hull(&points, drawing_history, &HullType::UpperHull);
     drawing_history.push(vec![LineType::TextComment("Added upper hull".to_string())]);
 
-    // let mut temp = vec![];
-    // for i in 0..upper_hull_vec.len()-1 {
-    //     temp.push(LineType::PartOfHull(upper_hull_vec[i], upper_hull_vec[i+1]))
-    // }
-    // drawing_history.push(temp);
-
     let mut lower_hull_vec = upper_hull(
         &points
             .iter()
@@ -256,7 +250,7 @@ pub fn kirk_patrick_seidel(
         .unwrap()
         .clone();
 
-    if upper_hull_max.x == lower_hull_max.x {
+    if upper_hull_max.x == lower_hull_max.x && upper_hull_min.y != lower_hull_min.y {
         upper_hull_vec.push(lower_hull_max);
         drawing_history.push(vec![
             LineType::PartOfHull(upper_hull_max, lower_hull_max),
@@ -267,7 +261,7 @@ pub fn kirk_patrick_seidel(
         ]);
     }
 
-    if upper_hull_min.x == lower_hull_min.x {
+    if upper_hull_min.x == lower_hull_min.x && upper_hull_min.y != lower_hull_min.y {
         upper_hull_vec.push(lower_hull_min);
         drawing_history.push(vec![
             LineType::PartOfHull(upper_hull_min, lower_hull_min),
@@ -291,8 +285,6 @@ fn upper_hull(
     drawing_history: &mut Vec<Vec<LineType>>,
     hull_type: &HullType,
 ) -> Vec<Vec2> {
-    println!("Finding upper hull for points: {:?}", points);
-
     let mut min_point = Vec2 {
         x: f32::MAX,
         y: f32::MIN,
@@ -305,8 +297,6 @@ fn upper_hull(
         }
     }
 
-    println!("Min point: {:?}", min_point);
-
     let mut max_point = Vec2 {
         x: f32::MIN,
         y: f32::MAX,
@@ -318,8 +308,6 @@ fn upper_hull(
             max_point = *i;
         }
     }
-
-    println!("Max point: {:?}", max_point);
 
     if min_point == max_point {
         drawing_history.push(vec![LineType::TextComment(format!(
@@ -345,7 +333,6 @@ fn connect(
     drawing_history: &mut Vec<Vec<LineType>>,
     hull_type: &HullType,
 ) -> Vec<Vec2> {
-    println!("Connecting points: {:?}", points);
     let median = median_of_medians(&points.iter().map(|point| point.x).collect());
     drawing_history.push(vec![
         LineType::VerticalLine(median),
@@ -353,7 +340,6 @@ fn connect(
     ]);
 
     let (left, right) = bridge(points, median);
-    println!("Bridge points: {} and {}", left, right);
     let (drawing_left, drawing_right) = match hull_type {
         HullType::LowerHull => (
             Vec2 {

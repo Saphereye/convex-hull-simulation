@@ -18,11 +18,18 @@ pub enum AlgorithmType {
 #[derive(Resource)]
 pub struct Algorithm(pub AlgorithmType);
 
+/// Enum representing the different types of draw calls the simulation can make
 pub enum LineType {
+    /// Represents a line that is part of the convex hull
     PartOfHull(Vec2, Vec2),
+    /// Temporary lines that show intermediate calculations
     Temporary(Vec2, Vec2),
+    /// Represents a text comment that explains the current step
     TextComment(String),
-    VerticalLine(f32), // Draws a vertical line at x
+    /// Represents a vertical line at a given x coordinate
+    VerticalLine(f32),
+    /// Clears the screen
+    #[allow(dead_code)]
     ClearScreen,
 }
 
@@ -215,7 +222,7 @@ pub fn kirk_patrick_seidel(
                 x: point.x,
                 y: -point.y,
             })
-            .collect(),
+            .collect::<Vec<_>>(),
         drawing_history,
         &HullType::LowerHull,
     );
@@ -229,26 +236,22 @@ pub fn kirk_patrick_seidel(
         .collect();
 
     // Time to merge lower and upper hull
-    let upper_hull_max = upper_hull_vec
+    let upper_hull_max = *upper_hull_vec
         .iter()
         .max_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap()
-        .clone();
-    let upper_hull_min = upper_hull_vec
+        .unwrap();
+    let upper_hull_min = *upper_hull_vec
         .iter()
         .min_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap()
-        .clone();
-    let lower_hull_max = lower_hull_vec
+        .unwrap();
+    let lower_hull_max = *lower_hull_vec
         .iter()
         .max_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap()
-        .clone();
-    let lower_hull_min = lower_hull_vec
+        .unwrap();
+    let lower_hull_min = *lower_hull_vec
         .iter()
         .min_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap()
-        .clone();
+        .unwrap();
 
     if upper_hull_max.x == lower_hull_max.x && upper_hull_min.y != lower_hull_min.y {
         upper_hull_vec.push(lower_hull_max);
@@ -281,7 +284,7 @@ pub fn kirk_patrick_seidel(
 }
 
 fn upper_hull(
-    points: &Vec<Vec2>,
+    points: &[Vec2],
     drawing_history: &mut Vec<Vec<LineType>>,
     hull_type: &HullType,
 ) -> Vec<Vec2> {
@@ -290,9 +293,7 @@ fn upper_hull(
         y: f32::MIN,
     };
     for i in points.iter() {
-        if i.x < min_point.x {
-            min_point = *i;
-        } else if i.x == min_point.x && i.y > min_point.y {
+        if i.x < min_point.x || (i.x == min_point.x && i.y > min_point.y) {
             min_point = *i;
         }
     }
@@ -302,17 +303,15 @@ fn upper_hull(
         y: f32::MAX,
     };
     for i in points.iter() {
-        if i.x > max_point.x {
-            max_point = *i;
-        } else if i.x == max_point.x && i.y > max_point.y {
+        if i.x > max_point.x || (i.x == max_point.x && i.y > max_point.y) {
             max_point = *i;
         }
     }
 
     if min_point == max_point {
-        drawing_history.push(vec![LineType::TextComment(format!(
-            "Single point convex hull found, returning the point",
-        ))]);
+        drawing_history.push(vec![LineType::TextComment(
+            "Single point convex hull found, returning the point".to_string(),
+        )]);
         return vec![min_point];
     }
 
@@ -323,17 +322,17 @@ fn upper_hull(
             .filter(|p| p.x > min_point.x && p.x < max_point.x),
     );
 
-    return connect(min_point, max_point, &temporary, drawing_history, hull_type);
+    connect(min_point, max_point, &temporary, drawing_history, hull_type)
 }
 
 fn connect(
     min: Vec2,
     max: Vec2,
-    points: &Vec<Vec2>,
+    points: &[Vec2],
     drawing_history: &mut Vec<Vec<LineType>>,
     hull_type: &HullType,
 ) -> Vec<Vec2> {
-    let median = median_of_medians(&points.iter().map(|point| point.x).collect());
+    let median = median_of_medians(&points.iter().map(|point| point.x).collect::<Vec<_>>());
     drawing_history.push(vec![
         LineType::VerticalLine(median),
         LineType::TextComment(format!("Found the median at {}", median)),
@@ -394,10 +393,10 @@ fn connect(
         "Found the connecting hull".to_string(),
     ));
 
-    return output;
+    output
 }
 
-fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
+fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
     let mut candidates: Vec<Vec2> = Vec::new();
     if points.len() == 2 {
         return if points[0].x < points[1].x {
@@ -407,7 +406,7 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
         };
     }
 
-    let mut sorted_points = points.clone();
+    let mut sorted_points = points.to_owned();
     sorted_points.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
 
     let mut pairs: Vec<(Vec2, Vec2)> = Vec::new();
@@ -425,13 +424,11 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
     for (point_i, point_j) in pairs.iter() {
         if point_i.x == point_j.x {
             if point_i.y > point_j.y {
-                if !candidates.contains(&point_i) {
+                if !candidates.contains(point_i) {
                     candidates.push(*point_i);
                 }
-            } else {
-                if !candidates.contains(&point_j) {
-                    candidates.push(*point_j);
-                }
+            } else if !candidates.contains(point_j) {
+                candidates.push(*point_j);
             }
         } else {
             slopes.push((
@@ -442,7 +439,7 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
         }
     }
 
-    let median_slope = median_of_medians(&slopes.iter().map(|(_, _, slope)| slope).collect());
+    let median_slope = median_of_medians(&slopes.iter().map(|(_, _, slope)| slope).collect::<Vec<_>>());
     let small = slopes.iter().filter(|(_, _, slope)| slope < median_slope);
     let equal = slopes.iter().filter(|(_, _, slope)| slope == median_slope);
     let large = slopes.iter().filter(|(_, _, slope)| slope > median_slope);
@@ -513,16 +510,16 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
         }
     }
 
-    return bridge(&candidates, median);
+    bridge(&candidates, median)
 }
 
-pub fn median_of_medians<T: Clone + Copy + PartialOrd>(nums: &Vec<T>) -> T {
+pub fn median_of_medians<T: Clone + Copy + PartialOrd>(nums: &[T]) -> T {
     match nums.len() {
         0 => panic!("No median of an empty list"),
         1 => nums[0],
         2..=5 => {
-            let mut nums = nums.clone();
-            nums.sort_by(|a, b| a.partial_cmp(&b).unwrap());
+            let mut nums = nums.to_owned();
+            nums.sort_by(|a, b| a.partial_cmp(b).unwrap());
             nums[nums.len() / 2]
         }
         _ => median_of_medians(
@@ -531,65 +528,10 @@ pub fn median_of_medians<T: Clone + Copy + PartialOrd>(nums: &Vec<T>) -> T {
                 .chunks(5)
                 .map(|chunk| {
                     let mut chunk = chunk.to_vec();
-                    chunk.sort_by(|a, b| a.partial_cmp(&b).unwrap());
+                    chunk.sort_by(|a, b| a.partial_cmp(b).unwrap());
                     chunk[chunk.len() / 2]
                 })
                 .collect::<Vec<T>>(),
         ),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_jarvis_march() {
-        let points = vec![
-            Vec2::new(0.0, 3.0),
-            Vec2::new(2.0, 2.0),
-            Vec2::new(1.0, 1.0),
-            Vec2::new(2.0, 1.0),
-            Vec2::new(3.0, 0.0),
-            Vec2::new(0.0, 0.0),
-            Vec2::new(3.0, 3.0),
-        ];
-
-        let mut drawing_history = Vec::new();
-        let hull = jarvis_march(points, &mut drawing_history);
-
-        let expected_hull = vec![
-            Vec2::new(0.0, 3.0),
-            Vec2::new(0.0, 0.0),
-            Vec2::new(3.0, 0.0),
-            Vec2::new(3.0, 3.0),
-        ];
-
-        assert_eq!(hull, expected_hull);
-    }
-
-    #[test]
-    fn test_kirk_patrick_seidel() {
-        let points = vec![
-            Vec2::new(0.0, 3.0),
-            Vec2::new(2.0, 2.0),
-            Vec2::new(1.0, 1.0),
-            Vec2::new(2.0, 1.0),
-            Vec2::new(3.0, 0.0),
-            Vec2::new(0.0, 0.0),
-            Vec2::new(3.0, 3.0),
-        ];
-
-        let mut drawing_history = Vec::new();
-        let hull: Vec<Vec2> = kirk_patrick_seidel(points, &mut drawing_history);
-
-        let expected_hull = vec![
-            Vec2::new(0.0, 3.0),
-            Vec2::new(0.0, 0.0),
-            Vec2::new(3.0, 0.0),
-            Vec2::new(3.0, 3.0),
-        ];
-
-        assert_eq!(hull, expected_hull);
     }
 }

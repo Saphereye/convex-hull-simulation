@@ -16,17 +16,21 @@
 use std::fmt::Debug;
 
 use bevy::{
-    ecs::world,
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     window::PrimaryWindow,
 };
+
 use bevy_egui::{
     egui::{self},
     systems::InputResources,
     EguiContexts, EguiPlugin,
 };
+
 use bevy_pancam::{PanCam, PanCamPlugin};
+
+use bevy::render::render_asset::RenderAssetUsages;
+use bevy::render::render_resource::PrimitiveTopology;
 
 mod algorithms;
 use algorithms::*;
@@ -44,6 +48,38 @@ struct PointData(Vec<Vec2>, String, f32, usize, bool);
 /// The timer for simulation, time step of simulation
 #[derive(Resource)]
 struct SimulationTimer(Timer, f32);
+
+#[derive(Component)]
+struct ColorText;
+
+#[derive(Resource)]
+struct TextComment;
+
+const MAX_ZOOM_OUT: f32 = 500.0;
+const TEXT_SIZE: f32 = 30.0;
+
+fn main() {
+    App::new()
+        .add_plugins((DefaultPlugins, EguiPlugin, PanCamPlugin))
+        .add_systems(Startup, setup)
+        .add_systems(Update, ui)
+        .add_systems(Update, graphics_drawing)
+        .add_systems(Update, keyboard_input_system)
+        .add_systems(Update, mouse_position_system)
+        .add_systems(Update, check_egui_wants_focus)
+        .add_systems(Update, pan_cam_system)
+        .insert_resource(PointData(vec![], String::new(), 10.0, 0, false))
+        .insert_resource(Distribution(DistributionType::Fibonacci))
+        .insert_resource(SimulationTimer(
+            Timer::from_seconds(1.0, TimerMode::Repeating),
+            1.0,
+        ))
+        .insert_resource(DrawingHistory(vec![], 0))
+        .insert_resource(Algorithm(AlgorithmType::JarvisMarch))
+        .insert_resource(TextComment)
+        .insert_resource(EguiWantsFocus(false))
+        .run();
+}
 
 fn create_combo_box<T: PartialEq + Copy>(
     ui: &mut egui::Ui,
@@ -73,37 +109,6 @@ fn despawn_entities<T: Component>(commands: &mut Commands, query: &Query<Entity,
     }
 }
 
-fn main() {
-    App::new()
-        .add_plugins((DefaultPlugins, EguiPlugin, PanCamPlugin))
-        .add_systems(Startup, setup)
-        .add_systems(Update, ui)
-        .add_systems(Update, graphics_drawing)
-        .add_systems(Update, keyboard_input_system)
-        .add_systems(Update, mouse_position_system)
-        .add_systems(Update, check_egui_wants_focus)
-        .add_systems(Update, pan_cam_system)
-        .insert_resource(PointData(vec![], String::new(), 10.0, 0, false))
-        .insert_resource(Distribution(DistributionType::Fibonacci))
-        .insert_resource(SimulationTimer(
-            Timer::from_seconds(1.0, TimerMode::Repeating),
-            1.0,
-        ))
-        .insert_resource(DrawingHistory(vec![], 0))
-        .insert_resource(Algorithm(AlgorithmType::JarvisMarch))
-        .insert_resource(TextComment)
-        .insert_resource(EguiWantsFocus(false))
-        .run();
-}
-
-#[derive(Component)]
-struct ColorText;
-
-#[derive(Resource)]
-struct TextComment;
-
-const MAX_ZOOM_OUT: f32 = 500.0;
-
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default()).insert(PanCam {
         grab_buttons: vec![MouseButton::Left, MouseButton::Middle], // which buttons should drag the camera
@@ -113,33 +118,6 @@ fn setup(mut commands: Commands) {
         max_scale: Some(MAX_ZOOM_OUT), // prevent the camera from zooming too far out
         ..default()
     });
-}
-
-use bevy::render::render_asset::RenderAssetUsages;
-use bevy::render::render_resource::PrimitiveTopology;
-
-macro_rules! draw_lines {
-    ($commands:expr, $meshes:expr, $materials:expr, $line:expr, $line_type:tt) => {
-        let color = match stringify!($line_type) {
-            "Gizmo" => Color::rgb(0.44, 0.44, 0.44),
-            "ConvexHull" => Color::rgb(1.0, 1.0, 1.0),
-            _ => Color::rgb(0.5, 0.5, 0.5), // Default color
-        };
-
-        $commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: Mesh2dHandle(
-                    $meshes.add(
-                        Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
-                            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, $line),
-                    ),
-                ),
-                material: $materials.add(color),
-                ..default()
-            },
-            $line_type,
-        ));
-    };
 }
 
 fn pan_cam_system(egui_wants_focus: Res<EguiWantsFocus>, mut pan_cam: Query<&mut PanCam>) {
@@ -200,29 +178,53 @@ fn graphics_drawing(
     for i in &drawing_history.0[drawing_history.1] {
         match i {
             LineType::PartOfHull(a, b) => {
-                draw_lines!(
-                    commands,
-                    meshes,
-                    materials,
-                    vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]],
-                    ConvexHull
-                );
+                commands.spawn((
+                    MaterialMesh2dBundle {
+                        mesh: Mesh2dHandle(
+                            meshes.add(
+                                Mesh::new(
+                                    PrimitiveTopology::LineStrip,
+                                    RenderAssetUsages::default(),
+                                )
+                                .with_inserted_attribute(
+                                    Mesh::ATTRIBUTE_POSITION,
+                                    vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]],
+                                ),
+                            ),
+                        ),
+                        material: materials.add(Color::rgb(1.0, 1.0, 1.0)),
+                        ..default()
+                    },
+                    ConvexHull,
+                ));
             }
             LineType::Temporary(a, b) => {
-                draw_lines!(
-                    commands,
-                    meshes,
-                    materials,
-                    vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]],
-                    Gizmo
-                );
+                commands.spawn((
+                    MaterialMesh2dBundle {
+                        mesh: Mesh2dHandle(
+                            meshes.add(
+                                Mesh::new(
+                                    PrimitiveTopology::LineStrip,
+                                    RenderAssetUsages::default(),
+                                )
+                                .with_inserted_attribute(
+                                    Mesh::ATTRIBUTE_POSITION,
+                                    vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0]],
+                                ),
+                            ),
+                        ),
+                        material: materials.add(Color::rgb(0.44, 0.44, 0.44)),
+                        ..default()
+                    },
+                    Gizmo,
+                ));
             }
             LineType::TextComment(comment) => {
                 commands.spawn((
                     TextBundle::from_section(
                         comment,
                         TextStyle {
-                            font_size: 20.0,
+                            font_size: TEXT_SIZE,
                             ..default()
                         },
                     )
@@ -271,7 +273,7 @@ fn graphics_drawing(
     drawing_history.1 += 1;
 }
 
-#[derive(Resource, Deref, DerefMut, PartialEq, Eq, Default)]
+#[derive(Resource, PartialEq)]
 struct EguiWantsFocus(bool);
 
 fn check_egui_wants_focus(
@@ -318,7 +320,7 @@ fn mouse_position_system(
 
         point_data
             .0
-            .push(Vec2::new(world_position.x as f32, world_position.y as f32));
+            .push(Vec2::new(world_position.x, world_position.y));
         point_data.3 += 1;
 
         let color = Color::WHITE;
@@ -329,11 +331,7 @@ fn mouse_position_system(
                     radius: point_data.2,
                 })),
                 material: materials.add(color),
-                transform: Transform::from_xyz(
-                    world_position.x as f32,
-                    world_position.y as f32,
-                    0.0,
-                ),
+                transform: Transform::from_xyz(world_position.x, world_position.y, 0.0),
                 ..default()
             },
             PointSingle,
@@ -358,7 +356,7 @@ fn ui(
 ) {
     egui::Window::new("Inspector").show(contexts.ctx_mut(), |ui| {
         ui.label("Choose the number of points and the simulation time Δt.");
-        ui.add(egui::Slider::new(&mut point_data.3, 0..=1_00_000).text("Number of points"));
+        ui.add(egui::Slider::new(&mut point_data.3, 0..=100_000).text("Number of points"));
         if ui
             .add(egui::Slider::new(&mut simulation_timer.1, 0.0..=10.0).text("Simulation time (s)"))
             .changed()
@@ -369,7 +367,7 @@ fn ui(
                 .set_duration(std::time::Duration::from_secs_f32(simulation_timer_time));
 
         }
-        
+
         ui.add(egui::Slider::new(&mut point_data.2, 1.00..=1000.0).text("Point radius"));
 
         ui.separator();
@@ -416,9 +414,7 @@ fn ui(
                         if x.is_nan() || y.is_nan() {
                             return;
                         }
-    
                         point_data.0.push(Vec2::new(x, y));
-    
                         commands.spawn((
                             MaterialMesh2dBundle {
                                 mesh: Mesh2dHandle(meshes.add(Circle { radius: point_data.2 })),
@@ -433,7 +429,6 @@ fn ui(
                         let (x, y) = bounded_random(point_data.3);
                         let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);
                         point_data.0.push(Vec2::new(x, y));
-    
                         commands.spawn((
                             MaterialMesh2dBundle {
                                 mesh: Mesh2dHandle(meshes.add(Circle { radius: point_data.2 })),
@@ -473,7 +468,6 @@ fn ui(
                     }
                 }
             }
-            
         }
 
         ui.separator();

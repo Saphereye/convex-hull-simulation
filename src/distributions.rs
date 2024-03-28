@@ -17,8 +17,8 @@ pub fn fibonacci_circle(index: usize) -> (f32, f32) {
     let angle = 2.0 * std::f32::consts::PI * index * (1.0 / GOLDEN_ANGLE);
     let radius = 100.0 * (index - 0.5).sqrt();
 
-    let x = angle.cos() * radius;
-    let y = angle.sin() * radius;
+    let x = (angle.cos() * radius).round();
+    let y = (angle.sin() * radius).round();
 
     (x, y)
 }
@@ -26,8 +26,8 @@ pub fn fibonacci_circle(index: usize) -> (f32, f32) {
 pub fn bounded_random(num_shapes: usize) -> (f32, f32) {
     let radius = num_shapes as f32 * 25.0 * rand::random::<f32>();
     let angle: f32 = rand::random::<f32>() * 2.0 * std::f32::consts::PI;
-    let x = angle.cos() * radius;
-    let y = angle.sin() * radius;
+    let x = (angle.cos() * radius).round();
+    let y = (angle.sin() * radius).round();
 
     (x, y)
 }

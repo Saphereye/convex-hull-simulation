@@ -395,7 +395,7 @@ fn ui(
             drawing_history.0.clear();
         }
 
-        ui.checkbox(&mut point_data.4, "Manually add points");
+        ui.checkbox(&mut point_data.4, "Manually add points by clicking");
 
         // ui.text_edit_multiline(&mut point_data.1);
         ui.code_editor(&mut point_data.1);

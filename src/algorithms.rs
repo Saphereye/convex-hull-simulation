@@ -454,7 +454,7 @@ fn bridge(points: &Vec<Vec2>, median: f32) -> (Vec2, Vec2) {
         .fold(f32::MIN, f32::max);
     let max_points: Vec<_> = points
         .iter()
-        .filter(|p| (p.y - median_slope * p.x) == max_value)
+        .filter(|p| ((p.y - median_slope * p.x) - max_value).abs() < 0.01)
         .collect();
     let min_point = max_points
         .iter()

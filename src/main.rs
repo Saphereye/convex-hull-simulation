@@ -13,8 +13,6 @@
 //! ## Program flow
 //! [![](https://mermaid.ink/img/pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA?type=png)](https://mermaid.live/edit#pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA)
 
-use std::fmt::Debug;
-
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
@@ -38,20 +36,25 @@ use algorithms::*;
 mod distributions;
 use distributions::*;
 
+/// Component to identify the points. Used by [despawn_entities] function to despawn all the points.
 #[derive(Component)]
 struct PointSingle;
 
-/// The points | text input | point radius | # of points | can add manually
-#[derive(Resource, Debug)]
+/// Resource to contain all data regarding the points.
+/// 
+/// It contains data in the following order: The points | text input | point radius | # of points | can add manually
+#[derive(Resource)]
 struct PointData(Vec<Vec2>, String, f32, usize, bool);
 
 /// The timer for simulation, time step of simulation
 #[derive(Resource)]
 struct SimulationTimer(Timer, f32);
 
+/// Component to identify the color text.
 #[derive(Component)]
 struct ColorText;
 
+/// Resource to store the text comment on the screen
 #[derive(Resource)]
 struct TextComment;
 
@@ -81,12 +84,16 @@ fn main() {
         .run();
 }
 
-fn create_combo_box<T: PartialEq + Copy>(
-    ui: &mut egui::Ui,
-    label: &str,
-    current: &mut T,
-    choices: &[(&str, T)],
-) {
+/// Creates a combo box with the given label and choices.
+///
+/// The combo box is created with the currently selected value. If the current value matches one of the choices,
+/// that choice is selected in the combo box. Otherwise, the first choice is selected.
+///
+/// See [ui] function for usage.
+fn create_combo_box<T>(ui: &mut egui::Ui, label: &str, current: &mut T, choices: &[(&str, T)])
+where
+    T: PartialEq + Copy,
+{
     egui::ComboBox::from_label(label)
         .selected_text(
             choices
@@ -102,13 +109,14 @@ fn create_combo_box<T: PartialEq + Copy>(
         });
 }
 
-#[inline]
+/// Despawns all entities with the given component.
 fn despawn_entities<T: Component>(commands: &mut Commands, query: &Query<Entity, With<T>>) {
     for entity in query.iter() {
         commands.entity(entity).despawn();
     }
 }
 
+/// Initial setup function
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default()).insert(PanCam {
         grab_buttons: vec![MouseButton::Left, MouseButton::Middle], // which buttons should drag the camera
@@ -120,12 +128,14 @@ fn setup(mut commands: Commands) {
     });
 }
 
+/// Adds controls for pancam system. Namely disables the camera when egui wants focus.
 fn pan_cam_system(egui_wants_focus: Res<EguiWantsFocus>, mut pan_cam: Query<&mut PanCam>) {
     for mut cam in pan_cam.iter_mut() {
         cam.enabled = !egui_wants_focus.0;
     }
 }
 
+/// Controls the keyboard input for the simulation.
 fn keyboard_input_system(
     input: Res<ButtonInput<KeyCode>>,
     mut point_data: ResMut<PointData>,
@@ -149,6 +159,7 @@ fn keyboard_input_system(
     }
 }
 
+/// Draws the graphics as declared in [LineType] enum.
 fn graphics_drawing(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -273,9 +284,11 @@ fn graphics_drawing(
     drawing_history.1 += 1;
 }
 
+/// Resource to store whether egui wants focus or not.
 #[derive(Resource, PartialEq)]
 struct EguiWantsFocus(bool);
 
+/// Checks if egui wants focus or not by checking if the pointer is over the egui area.
 fn check_egui_wants_focus(
     mut contexts: Query<&mut bevy_egui::EguiContext>,
     mut wants_focus: ResMut<EguiWantsFocus>,
@@ -290,6 +303,7 @@ fn check_egui_wants_focus(
     wants_focus.set_if_neq(EguiWantsFocus(new_wants_focus));
 }
 
+/// System to add points to the world by clicking.
 fn mouse_position_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -339,6 +353,7 @@ fn mouse_position_system(
     }
 }
 
+/// Draws the UI for the simulation.
 fn ui(
     mut contexts: EguiContexts,
     mut commands: Commands,

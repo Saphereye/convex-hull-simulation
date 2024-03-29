@@ -1,20 +1,36 @@
+//! Contains the implementation of the algorithms used in the simulation.
+//! 
+//! Currently, the simulation supports two algorithms:
+//! - [Jarvis March](https://en.wikipedia.org/wiki/Gift_wrapping_algorithm)
+//! - [Kirkpatrick Seidel](https://graphics.stanford.edu/courses/cs268-16-fall/Notes/KirkSeidel.pdf)
+//! 
+//! Furthermore contains algorithm relevant functions.
+
 use bevy::prelude::*;
 
+/// Bevy resource that contains all the point history, so that they can be animated later.
+/// Support all primitives under [LineType].
+/// 
+/// The fields represent (history of points, the current point index)
 #[derive(Resource)]
 pub struct DrawingHistory(pub Vec<Vec<LineType>>, pub usize); // history, current
 
+/// Bevy component that represents temporary points
 #[derive(Component)]
 pub struct Gizmo;
 
+/// Bevy component representing points part of convex hull
 #[derive(Component)]
 pub struct ConvexHull;
 
+/// Enum representing the implemented algorithms
 #[derive(PartialEq, Clone, Copy)]
 pub enum AlgorithmType {
     JarvisMarch,
     KirkPatrickSeidel,
 }
 
+/// Bevy resource that contains the current algorithm being used
 #[derive(Resource)]
 pub struct Algorithm(pub AlgorithmType);
 
@@ -131,12 +147,19 @@ pub fn jarvis_march(points: Vec<Vec2>, drawing_history: &mut Vec<Vec<LineType>>)
     hull
 }
 
+/// Represent the orientation between three points (consecutive)
 enum Orientation {
+    /// Has $\lt 0$ angle between the lines made by the points
     Clockwise,
+    /// Has $\gt 0$ angle between the lines made by the points
     Counterclockwise,
+    /// Has $\pi$ radian angle between the lines made by the points
     Colinear,
 }
 
+/// Finds the orientation of three points and returns [Orientation]
+/// 
+/// Calculates the angle between $p, q, r$ using $(q_y - p_y) \cdot (r_x - q_x) - (q_x - p_x) \cdot (r_y - q_y)$
 fn orientation(p: &Vec2, q: &Vec2, r: &Vec2) -> Orientation {
     let val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
 
@@ -150,6 +173,7 @@ fn orientation(p: &Vec2, q: &Vec2, r: &Vec2) -> Orientation {
     Orientation::Counterclockwise
 }
 
+/// Represents the type of hull being calculated. Used for drawing purposes only in [kirk_patrick_seidel].
 enum HullType {
     UpperHull,
     LowerHull,
@@ -283,6 +307,20 @@ pub fn kirk_patrick_seidel(
     upper_hull_vec
 }
 
+/// Returns the upper hull of input points
+/// # Pseudocode
+/// ```text
+/// Procedure UPPER-HULL(S)
+/// 1. Initialization
+///     Let min and max be the indices of two points in S that form the left and right
+///     endpoint of the upper hull of S respectively, i.e.
+///         x(p_min) ≤ x(p_i) ≤ x(p_max) and
+///         y(p_min) ≥ y(p_i) if x(p_min) = x(p_i),
+///         y(p_max) ≥ y(p_i) if x(p_max) = x(p_i) for i = 1,..., n
+///     If min = max then print min and stop.
+///     Let T := {p_min, p_max} ∪ {p ∈ S | x(p_min) < x(p) < x(p_max)}.
+/// 2. return CONNECT(min, max, T)
+/// ```
 fn upper_hull(
     points: &[Vec2],
     drawing_history: &mut Vec<Vec<LineType>>,
@@ -325,6 +363,26 @@ fn upper_hull(
     connect(min_point, max_point, &temporary, drawing_history, hull_type)
 }
 
+/// Returns the points that form the convex hull
+/// # Pseudocode
+/// ```text
+/// Procedure CONNECT(k, m, S)
+/// 1. Find a real number a such that
+///     x(p_i) ≤ a for ⌊|S|/2⌋ points in S and
+///     x(p_i) > a for ⌈|S|/2⌉ points in S.
+/// 2. Find the "bridge" over the vertical line L {(x, y) | x = a}, i.e.
+///     (i, j) := BRIDGE (S, a).
+/// 3. Let S_left := {p_i} ∪ {p ∈ S | x(p) < x(p_i)}.
+///     Let S_right := {p_j} ∪ {p ∈ S | x(p) > x(p_j)}.
+/// 4. If i = k
+///     then add_to_answer(print (i))
+///     else add_to_answer(CONNECT (k, i, S_left).)
+///    If j = m 
+///     then add_to_answer(print (j))
+///     else add_to_answer(CONNECT (j, m, S_right).)
+/// 5. return answer
+/// ```
+/// Note: hear print means add to the output answer
 fn connect(
     min: Vec2,
     max: Vec2,
@@ -396,6 +454,43 @@ fn connect(
     output
 }
 
+/// Returns the two points that forms the bridge of the points
+/// # Pseudocode
+/// ```text
+/// Function BRIDGE (S, a)
+/// 0. CANDIDATES := ∅
+/// 1. If |S| = 2 then return ((i, j)), where S = {p_i, p_j} and x(p_i) < x(p_j).
+/// 2. Choose ⌊|S|/2⌋ disjoint sets of size 2 from S.
+///     If a point of S remains, then insert it into CANDIDATES.
+///     Arrange each subset to be an ordered pair (p_i, p_j), such that x(p_i) < x(p_j).
+///     Let PAIRS be the set of these ordered pairs.
+/// 3. Determine the slopes of the straight lines defined by the pairs.
+///     In case the slope does not exist for some pair, apply Lemma 3.1, i.e.
+///     "For all (p_i, p_j) in PAIRS do
+///         if x(p_i) = x(p_j) then delete (p_i, p_j) from PAIRS
+///         if y(p_i) > y(p_j) then insert p_i into CANDIDATES
+///         else insert p_j into CANDIDATES
+///         else let k(p_i, p_j) := (y(p_j) - y(p_i)) / (x(p_j) - x(p_i))"
+/// 4. Determine K, the median of {k(p_i, p_j) | (p_i, p_j) ∈ PAIRS}.
+/// 5. Let SMALL := {(p_i, p_j) ∈ PAIRS | k(p_i, p_j) < K}.
+///     Let EQUAL := {(p_i, p_j) ∈ PAIRS | k(p_i, p_j) = K}.
+///     Let LARGE := {(p_i, p_j) ∈ PAIRS | k(p_i, p_j) > K}.
+/// 6. Find the set of points of S which lie on the supporting line h with slope K, i.e.:
+///     Let MAX be the set of points p ∈ S, s.t. y(p) - K * x(p) is maximum.
+///     Let p_k be the point in MAX with minimum x-coordinate.
+///     Let p_m be the point in MAX with maximum x-coordinate.
+/// 7. Determine if h contains the bridge, i.e.
+///     if x(p_k) ≤ a and x(p_m) > a then return((k, m)).
+/// 8. h contains only points to the left of or on L:
+///     if x(p_m) ≤ a then
+///         for all (p_i, p_j) ∈ LARGE ∪ EQUAL insert p_j into CANDIDATES.
+///         for all (p_i, p_j) ∈ SMALL insert p_i and p_j into CANDIDATES.
+/// 9. h contains only points to the right of L:
+///     if x(p_k) > a then
+///         for all (p_i, p_j) ∈ SMALL ∪ EQUAL insert p_i into CANDIDATES.
+///         for all (p_i, p_j) ∈ LARGE insert p_i and p_j into CANDIDATES.
+/// 10. return(BRIDGE (CANDIDATES, a)).
+/// ```
 fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
     let mut candidates: Vec<Vec2> = Vec::new();
     if points.len() == 2 {
@@ -439,7 +534,8 @@ fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
         }
     }
 
-    let median_slope = median_of_medians(&slopes.iter().map(|(_, _, slope)| slope).collect::<Vec<_>>());
+    let median_slope =
+        median_of_medians(&slopes.iter().map(|(_, _, slope)| slope).collect::<Vec<_>>());
     let small = slopes.iter().filter(|(_, _, slope)| slope < median_slope);
     let equal = slopes.iter().filter(|(_, _, slope)| slope == median_slope);
     let large = slopes.iter().filter(|(_, _, slope)| slope > median_slope);
@@ -513,13 +609,38 @@ fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
     bridge(&candidates, median)
 }
 
-pub fn median_of_medians<T: Clone + Copy + PartialOrd>(nums: &[T]) -> T {
+/// Returns the [Median of medians](https://en.wikipedia.org/wiki/Median_of_medians) of the input list
+/// # Pseudocode
+/// ```text
+/// Function MEDIAN-OF-MEDIANS(S)
+/// 1. If |S| ≤ 5 then return the median of S.
+/// 2. Partition S into ⌈|S|/5⌉ disjoint sets of size 5.
+/// 3. Let M be the set of medians of the sets.
+/// 4. return MEDIAN-OF-MEDIANS(M).
+/// ```
+/// # Analysis
+/// The algorithm is a divide-&-conquer algorithm. The key step is the computation of the median
+/// of medians which is based on the partitioning of the input set into disjoint sets of size 5.
+/// This step can be done in O(n) time. We also know that step 4 can be done in O(n) time by the
+/// linear time median finding algorithm. Hence, steps 2-4 can be done in O(n) time. For the purposes
+/// of analyzing algorithm `MEDIAN-OF-MEDIANS(S)`, let us assume the input set consists of n elements.
+/// Let $T(n)$ denote the worst-case time complexity of the algorithm. Suppose the two occurrences of
+/// $O(n)$ in the above recurrence are at most $cn$, where $c$ is a suitably large constant. We will show
+/// by induction on $n$ that $T(n) \leq cn \log(n)$ for all $n \geq 5$. For the base case where $n = 5$,
+/// $T(n) \leq cn \leq cn\log(5) = cn \log(n)$. For the inductive case,
+/// $T(n) \leq cn + T(\frac{n}{5})$.
+/// By the inductive hypothesis, $T(\frac{n}{5}) \leq c \frac{n}{5} \log(\frac{n}{5})$.
+/// Therefore, $T(n) \leq cn + c \frac{n}{5} \log(\frac{n}{5}) = cn \log(n)$, completing the induction.
+pub fn median_of_medians<T>(nums: &[T]) -> T
+where
+    T: Clone + Copy + PartialOrd,
+{
     match nums.len() {
         0 => panic!("No median of an empty list"),
         1 => nums[0],
         2..=5 => {
             let mut nums = nums.to_owned();
-            nums.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            nums.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
             nums[nums.len() / 2]
         }
         _ => median_of_medians(
@@ -528,7 +649,7 @@ pub fn median_of_medians<T: Clone + Copy + PartialOrd>(nums: &[T]) -> T {
                 .chunks(5)
                 .map(|chunk| {
                     let mut chunk = chunk.to_vec();
-                    chunk.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    chunk.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
                     chunk[chunk.len() / 2]
                 })
                 .collect::<Vec<T>>(),

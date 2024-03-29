@@ -1,14 +1,24 @@
+//! Contains the different types of distributions that can be used to place the points
+//! 
+//! The distributions are:
+//! - Fibonacci
+//! - Random
+
 use bevy::prelude::*;
 
+/// The different types of distributions that can be used to place the points
 #[derive(PartialEq, Clone, Copy)]
 pub enum DistributionType {
     Fibonacci,
     Random,
 }
 
+/// A resource that stores the current distribution type
 #[derive(Resource)]
 pub struct Distribution(pub DistributionType);
 
+/// Stores the value for [Golden Angle](https://en.wikipedia.org/wiki/Golden_angle).
+/// Used by [fibonacci_circle] function to generate points in a fibonacci spiral.
 const GOLDEN_ANGLE: f32 = 2.3998277;
 
 pub fn fibonacci_circle(index: usize) -> (f32, f32) {
@@ -23,6 +33,7 @@ pub fn fibonacci_circle(index: usize) -> (f32, f32) {
     (x, y)
 }
 
+/// Generates a random point within a circle with a radius of `num_shapes * 25.0`
 pub fn bounded_random(num_shapes: usize) -> (f32, f32) {
     let radius = num_shapes as f32 * 25.0 * rand::random::<f32>();
     let angle: f32 = rand::random::<f32>() * 2.0 * std::f32::consts::PI;

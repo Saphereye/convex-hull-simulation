@@ -502,7 +502,7 @@ fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
     }
 
     let mut sorted_points = points.to_owned();
-    sorted_points.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+    sorted_points.sort_unstable_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
 
     let mut pairs: Vec<(Vec2, Vec2)> = Vec::new();
 

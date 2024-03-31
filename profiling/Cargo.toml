@@ -1,0 +1,17 @@
+[package]
+name = "profiling"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand = "0.8.5"
+
+[profile.release]
+debug = 1
+
+[rust]
+debuginfo-level = 1
+
+[target.x86_64-unknown-linux-gnu]
+linker = "/usr/bin/clang"
+rustflags = ["-Clink-arg=-fuse-ld=lld", "-Clink-arg=-Wl,--no-rosegment"]

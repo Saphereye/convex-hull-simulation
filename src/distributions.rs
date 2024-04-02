@@ -5,13 +5,15 @@
 //! - Random
 
 use bevy::prelude::*;
-
+use rand::{thread_rng, Rng};
+    
 /// The different types of distributions that can be used to place the points
 #[derive(PartialEq, Clone, Copy)]
 pub enum DistributionType {
     Fibonacci,
     Random,
     CirclePerimeter,
+    Square,
 }
 
 /// A resource that stores the current distribution type
@@ -57,4 +59,10 @@ pub fn circle_points(num_shapes: usize) -> (f32, f32) {
 
 /// Generates points inside a square
 pub fn bounded_random_square(num_shapes: usize) -> (f32, f32) {
+    let mut rng = thread_rng();
+
+    let x: f32 = rng.gen_range(-(num_shapes as f32 * 5.0)..(num_shapes as f32 * 5.0));
+    let y: f32 = rng.gen_range(-(num_shapes as f32 * 5.0)..(num_shapes as f32 * 5.0));
+
+    (x, y)
 }

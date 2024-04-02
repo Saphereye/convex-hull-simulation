@@ -413,6 +413,7 @@ fn ui(
             &[
                 ("Fibonacci", DistributionType::Fibonacci),
                 ("Circle Perimeter", DistributionType::CirclePerimeter),
+                ("Square Perimeter", DistributionType::Square),
                 ("Random", DistributionType::Random),
             ],
         );
@@ -474,6 +475,20 @@ fn ui(
                     }
                     DistributionType::CirclePerimeter => {
                         let (x, y) = circle_points(point_data.3);
+                        let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);
+                        point_data.0.push(Vec2::new(x, y));
+                        commands.spawn((
+                            MaterialMesh2dBundle {
+                                mesh: Mesh2dHandle(meshes.add(Circle { radius: point_data.2 })),
+                                material: materials.add(color),
+                                transform: Transform::from_xyz(x, y, 0.0),
+                                ..default()
+                            },
+                            PointSingle,
+                        ));
+                    }
+                    DistributionType::Square => {
+                        let (x, y) = bounded_random_square(point_data.3);
                         let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);
                         point_data.0.push(Vec2::new(x, y));
                         commands.spawn((

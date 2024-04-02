@@ -12,6 +12,23 @@
 //!
 //! ## Program flow
 //! [![](https://mermaid.ink/img/pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA?type=png)](https://mermaid.live/edit#pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA)
+//!
+//! ## Comparison
+//! ### Introduction
+//! | Feature        | Kirk Seidel                                                  | Jarvis March                                             |
+//! | -------------- | ------------------------------------------------------------ | -------------------------------------------------------- |
+//! | Algorithm Type | Divide and Conquer                                           | Incremental/Gift Wrapping                                |
+//! | Complexity     | $O(n \log n)$                                                | $O(nh)$                                                  |
+//! | Advantages     | Faster for large datasets, Handles non-convex shapes well    | Simplicity of implementation                             |
+//! | Disadvantages  | More complex implementation, Potentially higher memory usage | Slower for large datasets, Sensitive to degenerate cases |
+//! | Key Features   | Divide and conquer strategy                                  | Iterative selection of points, based on polar angle      |
+//! 
+//! ### Performance comparison
+//! todo explain
+//! ![Violin Plot](../violin.svg)
+//! 
+//! ### Flamegraph
+//! ![Flame](../kirk_patrick_flamegraph.svg)
 
 use bevy::{
     prelude::*,
@@ -41,7 +58,7 @@ use distributions::*;
 struct PointSingle;
 
 /// Resource to contain all data regarding the points.
-/// 
+///
 /// It contains data in the following order: The points | text input | point radius | # of points | can add manually
 #[derive(Resource)]
 struct PointData(Vec<Vec2>, String, f32, usize, bool);
@@ -243,7 +260,7 @@ fn graphics_drawing(
                     .with_style(Style {
                         position_type: PositionType::Absolute,
                         bottom: Val::Px(5.0),
-                        right: Val::Px(5.0),
+                        left: Val::Px(5.0),
                         ..default()
                     }),
                     ColorText,
@@ -371,7 +388,7 @@ fn ui(
 ) {
     egui::Window::new("Inspector").show(contexts.ctx_mut(), |ui| {
         ui.label("Choose the number of points and the simulation time Δt.");
-        ui.add(egui::Slider::new(&mut point_data.3, 0..=100_000).text("Number of points"));
+        ui.add(egui::Slider::new(&mut point_data.3, 0..=15_000).text("Number of points"));
         if ui
             .add(egui::Slider::new(&mut simulation_timer.1, 0.0..=10.0).text("Simulation time (s)"))
             .changed()
@@ -395,6 +412,7 @@ fn ui(
             &mut distribution.0,
             &[
                 ("Fibonacci", DistributionType::Fibonacci),
+                ("Circle Perimeter", DistributionType::CirclePerimeter),
                 ("Random", DistributionType::Random),
             ],
         );
@@ -442,6 +460,20 @@ fn ui(
                     }
                     DistributionType::Random => {
                         let (x, y) = bounded_random(point_data.3);
+                        let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);
+                        point_data.0.push(Vec2::new(x, y));
+                        commands.spawn((
+                            MaterialMesh2dBundle {
+                                mesh: Mesh2dHandle(meshes.add(Circle { radius: point_data.2 })),
+                                material: materials.add(color),
+                                transform: Transform::from_xyz(x, y, 0.0),
+                                ..default()
+                            },
+                            PointSingle,
+                        ));
+                    }
+                    DistributionType::CirclePerimeter => {
+                        let (x, y) = circle_points(point_data.3);
                         let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);
                         point_data.0.push(Vec2::new(x, y));
                         commands.spawn((

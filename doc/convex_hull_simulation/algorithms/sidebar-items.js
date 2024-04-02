@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AlgorithmType","HullType","LineType","Orientation"],"fn":["bridge","connect","jarvis_march","kirk_patrick_seidel","median_of_medians","orientation","upper_hull"],"struct":["Algorithm","ConvexHull","DrawingHistory","Gizmo"]};

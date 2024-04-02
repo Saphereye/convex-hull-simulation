@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Returns the two points that forms the bridge of the points"><title>bridge in convex_hull_simulation::algorithms - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="convex_hull_simulation" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.1 (7cf61ebde 2024-03-27)" data-channel="1.77.1" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/katex.min.css" integrity="sha384-9eLZqc9ds8eNjO3TmqPeYcDj8n+Qfa4nuSiGYa6DjLNcv9BtN69ZIulL9+8CqC9Y" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/katex.min.js"                  integrity="sha384-K3vbOmF2BtaVai+Qk37uypf7VrgBubhQreNQe9aGsz9lB63dIFiQVlJbr92dw2Lx" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/contrib/auto-render.min.js"    integrity="sha384-kmZOZB5ObwgQnS/DuDg6TScgOiWWBiVt0plIRkZCmE6rDZGrEOQeHM5PcHi+nyqe" crossorigin="anonymous"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: "$$", right: "$$", display: true},
+                {left: "\\(", right: "\\)", display: false},
+                {left: "$", right: "$", display: false},
+                {left: "\\[", right: "\\]", display: true}
+            ]
+        });
+    });
+</script>
+
+</head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../convex_hull_simulation/index.html">convex_hull_simulation</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In convex_hull_simulation::algorithms</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../convex_hull_simulation/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../index.html">convex_hull_simulation</a>::<wbr><a href="index.html">algorithms</a>::<wbr><a class="fn" href="#">bridge</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/convex_hull_simulation/algorithms.rs.html#494-610">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>fn bridge(points: &amp;[<a class="struct" href="https://docs.rs/glam/0.25.0/glam/f32/vec2/struct.Vec2.html" title="struct glam::f32::vec2::Vec2">Vec2</a>], median: <a class="primitive" href="https://doc.rust-lang.org/1.77.1/std/primitive.f32.html">f32</a>) -&gt; (<a class="struct" href="https://docs.rs/glam/0.25.0/glam/f32/vec2/struct.Vec2.html" title="struct glam::f32::vec2::Vec2">Vec2</a>, <a class="struct" href="https://docs.rs/glam/0.25.0/glam/f32/vec2/struct.Vec2.html" title="struct glam::f32::vec2::Vec2">Vec2</a>)</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Returns the two points that forms the bridge of the points</p>
+<h2 id="pseudocode"><a class="doc-anchor" href="#pseudocode">§</a>Pseudocode</h2><div class="example-wrap"><pre class="language-text"><code>Function BRIDGE (S, a)
+0. CANDIDATES := ∅
+1. If |S| = 2 then return ((i, j)), where S = {p_i, p_j} and x(p_i) &lt; x(p_j).
+2. Choose ⌊|S|/2⌋ disjoint sets of size 2 from S.
+    If a point of S remains, then insert it into CANDIDATES.
+    Arrange each subset to be an ordered pair (p_i, p_j), such that x(p_i) &lt; x(p_j).
+    Let PAIRS be the set of these ordered pairs.
+3. Determine the slopes of the straight lines defined by the pairs.
+    In case the slope does not exist for some pair, apply Lemma 3.1, i.e.
+    &quot;For all (p_i, p_j) in PAIRS do
+        if x(p_i) = x(p_j) then delete (p_i, p_j) from PAIRS
+        if y(p_i) &gt; y(p_j) then insert p_i into CANDIDATES
+        else insert p_j into CANDIDATES
+        else let k(p_i, p_j) := (y(p_j) - y(p_i)) / (x(p_j) - x(p_i))&quot;
+4. Determine K, the median of {k(p_i, p_j) | (p_i, p_j) ∈ PAIRS}.
+5. Let SMALL := {(p_i, p_j) ∈ PAIRS | k(p_i, p_j) &lt; K}.
+    Let EQUAL := {(p_i, p_j) ∈ PAIRS | k(p_i, p_j) = K}.
+    Let LARGE := {(p_i, p_j) ∈ PAIRS | k(p_i, p_j) &gt; K}.
+6. Find the set of points of S which lie on the supporting line h with slope K, i.e.:
+    Let MAX be the set of points p ∈ S, s.t. y(p) - K * x(p) is maximum.
+    Let p_k be the point in MAX with minimum x-coordinate.
+    Let p_m be the point in MAX with maximum x-coordinate.
+7. Determine if h contains the bridge, i.e.
+    if x(p_k) ≤ a and x(p_m) &gt; a then return((k, m)).
+8. h contains only points to the left of or on L:
+    if x(p_m) ≤ a then
+        for all (p_i, p_j) ∈ LARGE ∪ EQUAL insert p_j into CANDIDATES.
+        for all (p_i, p_j) ∈ SMALL insert p_i and p_j into CANDIDATES.
+9. h contains only points to the right of L:
+    if x(p_k) &gt; a then
+        for all (p_i, p_j) ∈ SMALL ∪ EQUAL insert p_i into CANDIDATES.
+        for all (p_i, p_j) ∈ LARGE insert p_i and p_j into CANDIDATES.
+10. return(BRIDGE (CANDIDATES, a)).
+</code></pre></div></div></details></section></div></main></body></html>

@@ -1,6 +1,9 @@
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+use rustc_hash::FxHashSet as HashSet;
 use rand::Rng;
-use std::collections::HashSet;
-use std::hash::{Hasher, Hash};
+use std::hash::Hash;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 struct Vec2 {
@@ -17,14 +20,9 @@ impl Vec2 {
 impl Eq for Vec2 {}
 
 impl Hash for Vec2 {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        // Convert the floating point numbers to integers with a fixed number of decimal places
-        let x = (self.x * 1_000_000.0) as i64;
-        let y = (self.y * 1_000_000.0) as i64;
-
-        // Hash the integers
-        x.hash(state);
-        y.hash(state);
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.x.to_bits().hash(state);
+        self.y.to_bits().hash(state);
     }
 }
 
@@ -141,7 +139,7 @@ fn connect(min: &Vec2, max: &Vec2, points: &[Vec2]) -> Vec<Vec2> {
 }
 
 fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
-    let mut candidates: HashSet<&Vec2> = HashSet::new();
+    let mut candidates: HashSet<&Vec2> = HashSet::default();
     if points.len() == 2 {
         return if points[0].x < points[1].x {
             (points[0], points[1])
@@ -205,7 +203,7 @@ fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
         .fold(f32::MIN, f32::max);
     let max_points: Vec<_> = points
         .iter()
-        .filter(|p| ((p.y - median_slope * p.x) - max_value).abs() < 0.01)
+        .filter(|p| p.y - median_slope * p.x == max_value)
         .collect();
     let min_point = max_points
         .iter()
@@ -246,7 +244,10 @@ fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
         }
     }
 
-    bridge(&candidates.into_iter().cloned().collect::<Vec<Vec2>>(), median)
+    bridge(
+        &candidates.into_iter().cloned().collect::<Vec<Vec2>>(),
+        median,
+    )
 }
 
 pub fn median_of_medians<T>(nums: &[T]) -> T
@@ -276,7 +277,7 @@ where
 }
 
 fn main() {
-    let n = 100000; // replace with the number of points you want
+    let n = 1_00_000;
     let mut rng = rand::thread_rng();
     let points: Vec<Vec2> = (0..n).map(|_| Vec2::new(rng.gen(), rng.gen())).collect();
 

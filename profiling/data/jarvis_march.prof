@@ -1,0 +1,205 @@
+--------------------------------------------------------------------------------
+Profile data file 'callgrind.out.226857' (creator: callgrind-3.18.1)
+--------------------------------------------------------------------------------
+I1 cache: 
+D1 cache: 
+LL cache: 
+Timerange: Basic block 0 - 11514602
+Trigger: Program termination
+Profiled target:  ./target/release/jarvis_march (PID 226857, part 1)
+Events recorded:  Ir
+Events shown:     Ir
+Event sort order: Ir
+Thresholds:       99
+Include dirs:     
+User annotated:   
+Auto-annotation:  on
+
+--------------------------------------------------------------------------------
+Ir                  
+--------------------------------------------------------------------------------
+68,826,085 (100.0%)  PROGRAM TOTALS
+
+--------------------------------------------------------------------------------
+Ir                   file:function
+--------------------------------------------------------------------------------
+50,999,740 (74.10%)  src/bin/jarvis_march.rs:jarvis_march::main [/home/adarsh/Adarsh_Data/Adarsh_Coding/convex_hull_simulation/profiling/target/release/jarvis_march]
+ 7,400,070 (10.75%)  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/slice/index.rs:jarvis_march::main
+ 3,799,999 ( 5.52%)  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/iter/range.rs:jarvis_march::main
+ 1,933,333 ( 2.81%)  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/cmp.rs:jarvis_march::main
+ 1,556,250 ( 2.26%)  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs:rand_chacha::guts::refill_wide::impl_avx2
+   993,753 ( 1.44%)  /home/adarsh/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rand_core-0.6.4/src/block.rs:jarvis_march::main
+   500,000 ( 0.73%)  /home/adarsh/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rand-0.8.5/src/distributions/utils.rs:jarvis_march::main
+   400,000 ( 0.58%)  /home/adarsh/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rand-0.8.5/src/distributions/float.rs:jarvis_march::main
+   300,000 ( 0.44%)  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/iter/adapters/map.rs:jarvis_march::main
+   200,039 ( 0.29%)  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/ptr/mod.rs:jarvis_march::main
+    53,125 ( 0.08%)  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/../../stdarch/crates/core_arch/src/x86/sse2.rs:rand_chacha::guts::refill_wide::impl_avx2
+    51,592 ( 0.07%)  ./stdio-common/./stdio-common/vfscanf-internal.c:__vfscanf_internal [/usr/lib/x86_64-linux-gnu/libc.so.6]
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: src/bin/jarvis_march.rs
+--------------------------------------------------------------------------------
+Ir                  
+
+-- line 17 ----------------------------------------
+         .               if n < 3 {
+         .                   return Vec::new();
+         .               }
+         .           
+         .               let mut hull = Vec::new();
+         .           
+         .               let mut l = 0;
+         .               for i in 1..n {
+   466,662 ( 0.68%)          if points[i].x < points[l].x {
+         .                       l = i;
+         .                   }
+         .               }
+         .           
+         .               let mut p = l;
+         .               let mut q;
+         .               loop {
+        72 ( 0.00%)          hull.push(points[p]);
+         .           
+       108 ( 0.00%)          q = (p + 1) % n;
+         .                   for r in 0..n {
+12,600,000 (18.31%)              if let Orientation::Counterclockwise = orientation(&points[p], &points[r], &points[q]) {
+         .                           q = r;
+         .                       }
+         .                   }
+         .           
+         .                   p = q;
+         .           
+        72 ( 0.00%)          if p == l {
+         .                       break;
+         .                   }
+         .               }
+         .           
+         2 ( 0.00%)      hull
+         .           }
+         .           
+         .           enum Orientation {
+         .               Clockwise,
+         .               Counterclockwise,
+         .               Colinear,
+         .           }
+         .           
+         .           #[inline(always)]
+         .           fn orientation(p: &Vec2, q: &Vec2, r: &Vec2) -> Orientation {
+32,400,000 (47.08%)      let val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+         .               if val == 0.0 {
+         .                   return Orientation::Colinear;
+         .               }
+         .               if val > 0.0 {
+         .                   return Orientation::Clockwise;
+         .               }
+         .               Orientation::Counterclockwise
+         .           }
+         .           
+         7 ( 0.00%)  fn main() {
+         .               let n = 100000; // replace with the number of points you want
+         2 ( 0.00%)      let mut rng = rand::thread_rng();
+     1,258 ( 0.00%)  => /home/adarsh/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rand-0.8.5/src/rngs/thread.rs:rand::rngs::thread::thread_rng (1x)
+         .               let points: Vec<Vec2> = (0..n).map(|_| Vec2::new(rng.gen(), rng.gen())).collect();
+         .           
+         .               jarvis_march(points);
+         8 ( 0.00%)  }
+
+ 5,532,807 ( 8.04%)  <counts for unidentified lines in src/bin/jarvis_march.rs>
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: /home/adarsh/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rand-0.8.5/src/distributions/utils.rs
+--------------------------------------------------------------------------------
+Ir               
+
+-- line 351 ----------------------------------------
+      .                           i as $ty
+      .                       }
+      .                   }
+      .           
+      .                   impl FloatAsSIMD for $ty {}
+      .               };
+      .           }
+      .           
+500,000 ( 0.73%)  scalar_float_impl!(f32, u32);
+      .           scalar_float_impl!(f64, u64);
+      .           
+      .           
+      .           #[cfg(feature = "simd_support")]
+      .           macro_rules! simd_impl {
+      .               ($ty:ident, $f_scalar:ident, $mty:ident, $uty:ident) => {
+      .                   impl FloatSIMDUtils for $ty {
+      .                       type Mask = $mty;
+-- line 367 ----------------------------------------
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: /home/adarsh/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rand-0.8.5/src/distributions/float.rs
+--------------------------------------------------------------------------------
+Ir               
+
+-- line 145 ----------------------------------------
+      .                           let value: $uty = rng.gen();
+      .                           let fraction = value >> (float_size - $fraction_bits);
+      .                           fraction.into_float_with_exponent(0) - (1.0 - EPSILON / 2.0)
+      .                       }
+      .                   }
+      .               }
+      .           }
+      .           
+400,000 ( 0.58%)  float_impls! { f32, u32, f32, u32, 23, 127 }
+      .           float_impls! { f64, u64, f64, u64, 52, 1023 }
+      .           
+      .           #[cfg(feature = "simd_support")]
+      .           float_impls! { f32x2, u32x2, f32, u32, 23, 127 }
+      .           #[cfg(feature = "simd_support")]
+      .           float_impls! { f32x4, u32x4, f32, u32, 23, 127 }
+      .           #[cfg(feature = "simd_support")]
+      .           float_impls! { f32x8, u32x8, f32, u32, 23, 127 }
+-- line 161 ----------------------------------------
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: /home/adarsh/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rand_core-0.6.4/src/block.rs
+--------------------------------------------------------------------------------
+Ir               
+
+-- line 179 ----------------------------------------
+      .           }
+      .           
+      .           impl<R: BlockRngCore<Item = u32>> RngCore for BlockRng<R>
+      .           where
+      .               <R as BlockRngCore>::Results: AsRef<[u32]> + AsMut<[u32]>,
+      .           {
+      .               #[inline]
+      .               fn next_u32(&mut self) -> u32 {
+393,753 ( 0.57%)          if self.index >= self.results.as_ref().len() {
+      .                       self.generate_and_set(0);
+      .                   }
+      .           
+200,000 ( 0.29%)          let value = self.results.as_ref()[self.index];
+400,000 ( 0.58%)          self.index += 1;
+      .                   value
+      .               }
+      .           
+      .               #[inline]
+      .               fn next_u64(&mut self) -> u64 {
+      .                   let read_u64 = |results: &[u32], index| {
+      .                       let data = &results[index..=index + 1];
+      .                       u64::from(data[1]) << 32 | u64::from(data[0])
+-- line 200 ----------------------------------------
+
+--------------------------------------------------------------------------------
+The following files chosen for auto-annotation could not be found:
+--------------------------------------------------------------------------------
+  ./stdio-common/./stdio-common/vfscanf-internal.c
+  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/../../stdarch/crates/core_arch/src/x86/avx2.rs
+  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/../../stdarch/crates/core_arch/src/x86/sse2.rs
+  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/cmp.rs
+  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/iter/adapters/map.rs
+  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/iter/range.rs
+  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/ptr/mod.rs
+  /rustc/85e449a3237e82c9ade8936a82bd4fc64cfe1057/library/core/src/slice/index.rs
+
+--------------------------------------------------------------------------------
+Ir                  
+--------------------------------------------------------------------------------
+47,360,686 (68.81%)  events annotated
+

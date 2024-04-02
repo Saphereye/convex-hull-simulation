@@ -1,11 +1,12 @@
-#![feature(test)]
-extern crate test;
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
-use rand::Rng;
-use std::collections::HashSet;
-use std::hash::{Hasher, Hash};
+use criterion::{criterion_group, criterion_main, Criterion};
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+use rustc_hash::FxHashSet as HashSet;
+use std::hash::Hash;
+
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
 struct Vec2 {
     x: f32,
     y: f32,
@@ -20,24 +21,19 @@ impl Vec2 {
 impl Eq for Vec2 {}
 
 impl Hash for Vec2 {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        // Convert the floating point numbers to integers with a fixed number of decimal places
-        let x = (self.x * 1_000_000.0) as i64;
-        let y = (self.y * 1_000_000.0) as i64;
-
-        // Hash the integers
-        x.hash(state);
-        y.hash(state);
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.x.to_bits().hash(state);
+        self.y.to_bits().hash(state);
     }
 }
 
 fn jarvis_march(points: Vec<Vec2>) -> Vec<Vec2> {
     let n = points.len();
-    if n < 3 {
-        return Vec::new();
-    }
+    let mut hull = Vec::with_capacity(n);
 
-    let mut hull = Vec::new();
+    if n < 3 {
+        return hull;
+    }
 
     let mut l = 0;
     for i in 1..n {
@@ -107,22 +103,25 @@ fn kirk_patrick_seidel(points: &[Vec2]) -> Vec<Vec2> {
         })
         .collect();
 
-    let upper_hull_max = *upper_hull_vec
-        .iter()
-        .max_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap();
-    let upper_hull_min = *upper_hull_vec
-        .iter()
-        .min_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap();
-    let lower_hull_max = *lower_hull_vec
-        .iter()
-        .max_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap();
-    let lower_hull_min = *lower_hull_vec
-        .iter()
-        .min_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap();
+    let (upper_hull_min, upper_hull_max) = upper_hull_vec.iter().fold(
+        (upper_hull_vec[0], upper_hull_vec[0]),
+        |(min, max), &point| {
+            (
+                if point.x < min.x { point } else { min },
+                if point.x > max.x { point } else { max },
+            )
+        },
+    );
+
+    let (lower_hull_min, lower_hull_max) = lower_hull_vec.iter().fold(
+        (lower_hull_vec[0], lower_hull_vec[0]),
+        |(min, max), &point| {
+            (
+                if point.x < min.x { point } else { min },
+                if point.x > max.x { point } else { max },
+            )
+        },
+    );
 
     if upper_hull_max.x == lower_hull_max.x && upper_hull_min.y != lower_hull_min.y {
         upper_hull_vec.push(lower_hull_max);
@@ -141,27 +140,28 @@ fn upper_hull(points: &[Vec2]) -> Vec<Vec2> {
         x: f32::MAX,
         y: f32::MIN,
     };
-    for i in points.iter() {
-        if i.x < min_point.x || (i.x == min_point.x && i.y > min_point.y) {
-            min_point = *i;
-        }
-    }
-
     let mut max_point = Vec2 {
         x: f32::MIN,
         y: f32::MAX,
     };
+
     for i in points.iter() {
-        if i.x > max_point.x || (i.x == max_point.x && i.y > max_point.y) {
+        if i.x < min_point.x || (i.x == min_point.x && i.y > min_point.y) {
+            min_point = *i;
+        }
+        if i.x > max_point.x || (i.x == max_point.x && i.y < max_point.y) {
             max_point = *i;
         }
     }
 
+    let mut temporary = Vec::with_capacity(points.len());
+    temporary.push(min_point);
+
     if min_point == max_point {
-        return vec![min_point];
+        return temporary;
     }
 
-    let mut temporary = vec![min_point, max_point];
+    temporary.push(max_point);
     temporary.extend(
         points
             .iter()
@@ -176,21 +176,23 @@ fn connect(min: &Vec2, max: &Vec2, points: &[Vec2]) -> Vec<Vec2> {
 
     let (left, right) = bridge(points, median);
 
-    let mut left_points = vec![left];
+    let mut left_points = Vec::with_capacity(points.len());
+    left_points.push(left);
     left_points.extend(points.iter().filter(|p| p.x < left.x));
 
-    let mut right_points = vec![right];
+    let mut right_points = Vec::with_capacity(points.len());
+    right_points.push(right);
     right_points.extend(points.iter().filter(|p| p.x > right.x));
 
-    let mut output = vec![];
+    let mut output = Vec::with_capacity(points.len());
     if left == *min {
-        output.extend(vec![left]);
+        output.push(left);
     } else {
         output.extend(connect(&min, &left, &left_points));
     }
 
     if right == *max {
-        output.extend(vec![right]);
+        output.push(right);
     } else {
         output.extend(connect(&right, &max, &right_points));
     }
@@ -199,7 +201,7 @@ fn connect(min: &Vec2, max: &Vec2, points: &[Vec2]) -> Vec<Vec2> {
 }
 
 fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
-    let mut candidates: HashSet<&Vec2> = HashSet::new();
+    let mut candidates: HashSet<&Vec2> = HashSet::default();
     if points.len() == 2 {
         return if points[0].x < points[1].x {
             (points[0], points[1])
@@ -222,7 +224,7 @@ fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
         }
     }
 
-    let mut slopes = vec![];
+    let mut slopes = Vec::with_capacity(pairs.len());
 
     for (point_i, point_j) in pairs.iter() {
         if point_i.x == point_j.x {
@@ -257,25 +259,39 @@ fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
     }
 
     // set of points with maximum value of p.y - median_slope * p.x
-    let max_value = points
-        .iter()
-        .map(|p| p.y - median_slope * p.x)
-        .fold(f32::MIN, f32::max);
-    let max_points: Vec<_> = points
-        .iter()
-        .filter(|p| ((p.y - median_slope * p.x) - max_value).abs() < 0.01)
-        .collect();
-    let min_point = max_points
-        .iter()
-        .min_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap();
-    let max_point = max_points
-        .iter()
-        .max_by(|a, b| a.x.partial_cmp(&b.x).unwrap())
-        .unwrap();
+    let mut max_value = f32::MIN;
+    let mut max_points = Vec::with_capacity(points.len());
+    let mut min_point = None;
+    let mut max_point = None;
+
+    for p in points.iter() {
+        let value = p.y - median_slope * p.x;
+        if value > max_value {
+            max_value = value;
+            max_points.clear();
+            max_points.push(p);
+            min_point = Some(p);
+            max_point = Some(p);
+        } else if (value - max_value).abs() < f32::EPSILON {
+            max_points.push(p);
+            if let Some(min_p) = min_point {
+                if p.x < min_p.x {
+                    min_point = Some(p);
+                }
+            }
+            if let Some(max_p) = max_point {
+                if p.x > max_p.x {
+                    max_point = Some(p);
+                }
+            }
+        }
+    }
+
+    let min_point = min_point.unwrap();
+    let max_point = max_point.unwrap();
 
     if min_point.x <= median && max_point.x > median {
-        return (**min_point, **max_point);
+        return (*min_point, *max_point);
     } else if max_point.x <= median {
         for (_, point2, _) in large {
             candidates.insert(point2);
@@ -304,7 +320,10 @@ fn bridge(points: &[Vec2], median: f32) -> (Vec2, Vec2) {
         }
     }
 
-    bridge(&candidates.into_iter().cloned().collect::<Vec<Vec2>>(), median)
+    bridge(
+        &candidates.into_iter().cloned().collect::<Vec<Vec2>>(),
+        median,
+    )
 }
 
 pub fn median_of_medians<T>(nums: &[T]) -> T
@@ -312,7 +331,7 @@ where
     T: Clone + Copy + PartialOrd,
 {
     match nums.len() {
-        0 => panic!("No median of an empty list"),
+        0 => unreachable!(),
         1 => nums[0],
         2..=5 => {
             let mut nums = nums.to_owned();
@@ -333,28 +352,70 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use test::Bencher;
+pub fn bench_jarvis_march(c: &mut Criterion) {
+    use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
-    #[bench]
-    fn bench_jarvis_march(b: &mut Bencher) {
-        let mut rng = rand::thread_rng();
-        let points: Vec<Vec2> = (0..1000)
-            .map(|_| Vec2::new(rng.gen_range(-1000.0..1000.0), rng.gen_range(-1000.0..1000.0)))
-            .collect();
+    let seed = [0; 32]; // A seed for the RNG. You can put any number here.
+    let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        b.iter(|| jarvis_march(points.clone()));
-    }
+    let points: Vec<Vec2> = (0..1_000)
+        .map(|_| {
+            Vec2::new(
+                rng.gen_range(-50_000..50_000) as f32,
+                rng.gen_range(-50_000..50_000) as f32,
+            )
+        })
+        .collect();
 
-    #[bench]
-    fn bench_kirk_patrick_seidel(b: &mut Bencher) {
-        let mut rng = rand::thread_rng();
-        let points: Vec<Vec2> = (0..1000)
-            .map(|_| Vec2::new(rng.gen_range(-1000.0..1000.0), rng.gen_range(-1000.0..1000.0)))
-            .collect();
-
-        b.iter(|| kirk_patrick_seidel(&points.clone()));
-    }
+    c.bench_function("jarvis march", |b| b.iter(|| jarvis_march(points.clone())));
 }
+
+pub fn bench_kirk_patrick_seidel(c: &mut Criterion) {
+    use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
+
+    let seed = [0; 32]; // A seed for the RNG. You can put any number here.
+    let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+    let points: Vec<Vec2> = (0..1_000)
+        .map(|_| {
+            Vec2::new(
+                rng.gen_range(-50_000..50_000) as f32,
+                rng.gen_range(-50_000..50_000) as f32,
+            )
+        })
+        .collect();
+
+    c.bench_function("KPS", |b| b.iter(|| kirk_patrick_seidel(&points.clone())));
+}
+
+pub fn comparison(c: &mut Criterion) {
+    use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
+
+    let seed = [42; 32]; // A seed for the RNG. You can put any number here.
+    let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+    let points: Vec<Vec2> = (0..1_000)
+        .map(|_| {
+            Vec2::new(
+                rng.gen_range(-50_000..50_000) as f32,
+                rng.gen_range(-50_000..50_000) as f32,
+            )
+        })
+        .collect();
+
+    let mut group = c.benchmark_group("Convex-hull Algorithms Comparison");
+    group.bench_function("Jarvis March", |b| {
+        b.iter(|| kirk_patrick_seidel(&points.clone()))
+    });
+    group.bench_function("Kirk Patrick Seidel", |b| {
+        b.iter(|| jarvis_march(points.clone()))
+    });
+
+    group.finish();
+}
+
+criterion_group!(benches, comparison);
+criterion_main!(benches);

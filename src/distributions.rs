@@ -61,8 +61,8 @@ pub fn circle_points(num_shapes: usize) -> (f32, f32) {
 pub fn bounded_random_square(num_shapes: usize) -> (f32, f32) {
     let mut rng = thread_rng();
 
-    let x: f32 = rng.gen_range(-(num_shapes as f32 * 5.0)..(num_shapes as f32 * 5.0));
-    let y: f32 = rng.gen_range(-(num_shapes as f32 * 5.0)..(num_shapes as f32 * 5.0));
+    let x: f32 = rng.gen_range(-(num_shapes as f32 * 5.0)..(num_shapes as f32 * 5.0)).round();
+    let y: f32 = rng.gen_range(-(num_shapes as f32 * 5.0)..(num_shapes as f32 * 5.0)).round();
 
     (x, y)
 }

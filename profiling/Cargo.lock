@@ -324,7 +324,7 @@ dependencies = [
 
 [[package]]
 name = "profiling"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "criterion",
  "rand",

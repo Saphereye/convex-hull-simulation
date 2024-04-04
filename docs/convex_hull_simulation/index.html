@@ -1,0 +1,107 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Convex Hull Simulation"><title>convex_hull_simulation - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="convex_hull_simulation" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.1 (7cf61ebde 2024-03-27)" data-channel="1.77.1" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-4c98445ec4002617.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/katex.min.css" integrity="sha384-9eLZqc9ds8eNjO3TmqPeYcDj8n+Qfa4nuSiGYa6DjLNcv9BtN69ZIulL9+8CqC9Y" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/katex.min.js"                  integrity="sha384-K3vbOmF2BtaVai+Qk37uypf7VrgBubhQreNQe9aGsz9lB63dIFiQVlJbr92dw2Lx" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.10.0/dist/contrib/auto-render.min.js"    integrity="sha384-kmZOZB5ObwgQnS/DuDg6TScgOiWWBiVt0plIRkZCmE6rDZGrEOQeHM5PcHi+nyqe" crossorigin="anonymous"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: "$$", right: "$$", display: true},
+                {left: "\\(", right: "\\)", display: false},
+                {left: "$", right: "$", display: false},
+                {left: "\\[", right: "\\]", display: true}
+            ]
+        });
+    });
+</script>
+
+</head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../convex_hull_simulation/index.html">convex_hull_simulation</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#constants">Constants</a></li><li><a href="#functions">Functions</a></li></ul></section></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../convex_hull_simulation/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">convex_hull_simulation</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/convex_hull_simulation/main.rs.html#1-635">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="convex-hull-simulation"><a class="doc-anchor" href="#convex-hull-simulation">§</a>Convex Hull Simulation</h2>
+<p>A rust based step by step simulation of Jarvis March and Kirk Patrick Seidel algorithms for convex hull generation.
+The program uses <a href="https://bevyengine.org">Bevy</a> as the game engine and <a href="https://github.com/emilk/egui">egui</a> for the ui library.</p>
+<p>The simulation is hosted on <a href="https://saphereye.github.io/Convex-Hull-CS-F364/">GitHub</a>.</p>
+<h3 id="what-is-a-convex-hull"><a class="doc-anchor" href="#what-is-a-convex-hull">§</a>What is a convex hull?</h3>
+<p>The convex hull of a finite point set $S$ in the plane is the smallest
+convex polygon containing the set. The vertices (corners) of this polygon must be
+points of $S$. Thus in order to compute the convex hull of a set $S$ it is necessary to find
+those points of $S$ which are vertices of the hull. For the purposes of constructing upper
+bounds we define the convex hull problem, as the problem of constructing the ordered
+sequence of points of $S$ which constitute the sequences of vertices around the hull.</p>
+<h3 id="program-flow"><a class="doc-anchor" href="#program-flow">§</a>Program flow</h3><div style="background-color: white;">
+  <img src="https://mermaid.ink/img/pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA?type=png)](https://mermaid.live/edit#pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA" alt="Workflow">
+</div>
+<h3 id="comparison"><a class="doc-anchor" href="#comparison">§</a>Comparison</h3><h4 id="short-overview"><a class="doc-anchor" href="#short-overview">§</a>Short overview</h4>
+<p>The following table gives a short overview of the differences between the two algorithms:</p>
+<div><table><thead><tr><th>Feature</th><th>Kirk Seidel</th><th>Jarvis March</th></tr></thead><tbody>
+<tr><td>Algorithm Type</td><td>Divide and Conquer</td><td>Incremental/Gift Wrapping</td></tr>
+<tr><td>Complexity</td><td>$O(n \log h)$</td><td>$O(nh)$</td></tr>
+<tr><td>Advantages</td><td>Faster for large datasets</td><td>Simplicity of implementation</td></tr>
+<tr><td>Disadvantages</td><td>More complex implementation, Higher memory usage</td><td>Slower for large datasets, Sensitive to degenerate cases</td></tr>
+<tr><td>Key Features</td><td>Divide and conquer strategy</td><td>Iterative selection of points, based on polar angle</td></tr>
+</tbody></table>
+</div>
+<p>To get a good comparison we performed benchmarks on both algorithms.
+Both algorithms were run on <code>10k</code> points and <code>100</code> samples were taken for each.</p>
+<h4 id="jarvis-march-performance"><a class="doc-anchor" href="#jarvis-march-performance">§</a>Jarvis March Performance</h4><table style="border: 0;">
+  <tr>
+    <td style="text-align: center; vertical-align: middle; border: 0; width: 70%; background-color: white">
+      <img src="../jarvis_gauss.svg" alt="Jarvis March PDF">
+    </td>
+    <td style="vertical-align: middle; border: 0;">
+      <p>
+        This is the PDF plot for Jarvis March. 
+        The plot displays the relationship between the times taken, per iteration and the density.
+        This plot helps to show how the different iterations differed from each other.
+        We can see that the mean time taken was around <code>290 ms</code>.
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td style="text-align: center; vertical-align: middle; border: 0;  width: 70%; background-color: white">
+      <img src="../jarvis_iteration_times.svg" alt="Jarvis March Iteration Times">
+    </td>
+    <td style="vertical-align: middle; border: 0;">
+      <p>
+        This is the iteration times plot for Jarvis March. 
+        The plot displays what times each sample has taken.
+        There are <code>100</code> such samples.
+      </p>
+    </td>
+  </tr>
+</table>
+<h4 id="kirk-patrick-seidel-performance"><a class="doc-anchor" href="#kirk-patrick-seidel-performance">§</a>Kirk Patrick Seidel Performance</h4><table style="border: 0;">
+  <tr>
+    <td style="text-align: center; vertical-align: middle; border: 0; width: 70%; background-color: white;">
+      <img src="../kirkpatrick_gauss.svg" alt="Kirkpatrick-Seidel PDF">
+    </td>
+    <td style="vertical-align: middle; border: 0;">
+      <p>
+        This is the PDF plot for Kirkpatrick-Seidel. 
+        The plot displays the relationship between the times taken, per iteration and the density.
+        This plot helps to show how the different iterations differed from each other.
+        We can see that the mean time taken was around <code>59 ms</code>.
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td style="text-align: center; vertical-align: middle; border: 0;  width: 70%; background-color: white;">
+      <img src="../kirkpatrick_iteration_times.svg" alt="Kirkpatrick-Seidel Iteration Times">
+    </td>
+    <td style="vertical-align: middle; border: 0;">
+      <p>
+        This is the iteration times plot for Kirkpatrick-Seidel. 
+        The plot displays what times each sample has taken.
+        There are <code>100</code> such samples.
+      </p>
+    </td>
+  </tr>
+</table>
+<h4 id="conclusion"><a class="doc-anchor" href="#conclusion">§</a>Conclusion</h4>
+<p>We can finally plot both all the samples to get an estimation
+of how both the algorithms compare against each other.</p>
+<div style="background-color: white;">
+  <img src="../violin.svg" alt="Jarvis March Iteration Times">
+</div>
+<p>Here we can clearly see that Jarvis March lies around <code>300ms</code> and Kirkpatrick-Seidel algorithm
+stays just above <code>50ms</code>. Thus we can conclude that Kirkpatrick-Seidel is faster than Jarvis March.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="algorithms/index.html" title="mod convex_hull_simulation::algorithms">algorithms</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Contains the implementation of the algorithms used in the simulation.</div></li><li><div class="item-name"><a class="mod" href="distributions/index.html" title="mod convex_hull_simulation::distributions">distributions</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Contains the different types of distributions that can be used to place the points</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.ColorText.html" title="struct convex_hull_simulation::ColorText">ColorText</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Component to identify the color text.</div></li><li><div class="item-name"><a class="struct" href="struct.EguiWantsFocus.html" title="struct convex_hull_simulation::EguiWantsFocus">EguiWantsFocus</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Resource to store whether egui wants focus or not.</div></li><li><div class="item-name"><a class="struct" href="struct.PointData.html" title="struct convex_hull_simulation::PointData">PointData</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Resource to contain all data regarding the points.</div></li><li><div class="item-name"><a class="struct" href="struct.PointSingle.html" title="struct convex_hull_simulation::PointSingle">PointSingle</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Component to identify the points. Used by <a href="fn.despawn_entities.html" title="fn convex_hull_simulation::despawn_entities">despawn_entities</a> function to despawn all the points.</div></li><li><div class="item-name"><a class="struct" href="struct.SimulationTimer.html" title="struct convex_hull_simulation::SimulationTimer">SimulationTimer</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">The timer for simulation, time step of simulation</div></li><li><div class="item-name"><a class="struct" href="struct.TextComment.html" title="struct convex_hull_simulation::TextComment">TextComment</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Resource to store the text comment on the screen</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.MAX_ZOOM_OUT.html" title="constant convex_hull_simulation::MAX_ZOOM_OUT">MAX_ZOOM_OUT</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Max zoom amount for the camera</div></li><li><div class="item-name"><a class="constant" href="constant.TEXT_SIZE.html" title="constant convex_hull_simulation::TEXT_SIZE">TEXT_SIZE</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Text size of the text at bottom</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.check_egui_wants_focus.html" title="fn convex_hull_simulation::check_egui_wants_focus">check_egui_wants_focus</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Checks if egui wants focus or not by checking if the pointer is over the egui area.</div></li><li><div class="item-name"><a class="fn" href="fn.create_combo_box.html" title="fn convex_hull_simulation::create_combo_box">create_combo_box</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Creates a combo box with the given label and choices.</div></li><li><div class="item-name"><a class="fn" href="fn.despawn_entities.html" title="fn convex_hull_simulation::despawn_entities">despawn_entities</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Despawns all entities with the given component.</div></li><li><div class="item-name"><a class="fn" href="fn.graphics_drawing.html" title="fn convex_hull_simulation::graphics_drawing">graphics_drawing</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Draws the graphics as declared in <a href="algorithms/enum.LineType.html" title="enum convex_hull_simulation::algorithms::LineType">LineType</a> enum.</div></li><li><div class="item-name"><a class="fn" href="fn.keyboard_input_system.html" title="fn convex_hull_simulation::keyboard_input_system">keyboard_input_system</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Controls the keyboard input for the simulation.</div></li><li><div class="item-name"><a class="fn" href="fn.main.html" title="fn convex_hull_simulation::main">main</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="fn" href="fn.mouse_position_system.html" title="fn convex_hull_simulation::mouse_position_system">mouse_position_system</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">System to add points to the world by clicking.</div></li><li><div class="item-name"><a class="fn" href="fn.pan_cam_system.html" title="fn convex_hull_simulation::pan_cam_system">pan_cam_system</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Adds controls for pancam system. Namely disables the camera when egui wants focus.</div></li><li><div class="item-name"><a class="fn" href="fn.setup.html" title="fn convex_hull_simulation::setup">setup</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Initial setup function</div></li><li><div class="item-name"><a class="fn" href="fn.ui.html" title="fn convex_hull_simulation::ui">ui</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Draws the UI for the simulation.</div></li></ul></section></div></main></body></html>

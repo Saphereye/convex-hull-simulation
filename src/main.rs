@@ -1,34 +1,105 @@
 //! # Convex Hull Simulation
 //! A rust based step by step simulation of Jarvis March and Kirk Patrick Seidel algorithms for convex hull generation.
 //! The program uses [Bevy](https://bevyengine.org) as the game engine and [egui](https://github.com/emilk/egui) for the ui library.
+//! 
+//! The simulation is hosted on [GitHub](https://saphereye.github.io/Convex-Hull-CS-F364/).
 //!
 //! ## What is a convex hull?
-//! The convex hull of a finite point set S in the plane is the smallest
+//! The convex hull of a finite point set $S$ in the plane is the smallest
 //! convex polygon containing the set. The vertices (corners) of this polygon must be
-//! points of S. Thus in order to compute the convex hull of a set S it is necessary to find
-//! those points of S which are vertices of the hull. For the purposes of constructing upper
+//! points of $S$. Thus in order to compute the convex hull of a set $S$ it is necessary to find
+//! those points of $S$ which are vertices of the hull. For the purposes of constructing upper
 //! bounds we define the convex hull problem, as the problem of constructing the ordered
-//! sequence of points of S which constitute the sequences of vertices around the hull.
+//! sequence of points of $S$ which constitute the sequences of vertices around the hull.
 //!
 //! ## Program flow
-//! [![](https://mermaid.ink/img/pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA?type=png)](https://mermaid.live/edit#pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA)
+//! <div style="background-color: white;">
+//!   <img src="https://mermaid.ink/img/pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA?type=png)](https://mermaid.live/edit#pako:eNpVkMFuwjAMhl_FyolK8AI9TFqZNmkb0gTXXkxiiNUkRm7CNlHefWHdDvhk2f5-2__FWHFkWnMI8mk9aob3bZ-gxuNi7UVGgpNwyuB4zMr7kllSA6vVw_TMe0loLU_Q_c9aSWf6Al9CAAxHUc4-Nn-CNwqmTkpy5GCLyUms7Nzt5u4r6plH2KBaP8F68UKJFPOdcnNHvLEO8IH1ODvAjthRqKBZmkgakV197nIDepM9RepNW1OHOvSmT9c6hyXL7jtZ02YttDTl5OrCJ8ajYjTtAcNYq-Q4i25mt35Nu_4AUKJpKA" alt="Workflow">
+//! </div>
 //!
 //! ## Comparison
-//! ### Introduction
+//! ### Short overview
+//! The following table gives a short overview of the differences between the two algorithms:
+//! 
 //! | Feature        | Kirk Seidel                                                  | Jarvis March                                             |
 //! | -------------- | ------------------------------------------------------------ | -------------------------------------------------------- |
 //! | Algorithm Type | Divide and Conquer                                           | Incremental/Gift Wrapping                                |
-//! | Complexity     | $O(n \log n)$                                                | $O(nh)$                                                  |
-//! | Advantages     | Faster for large datasets, Handles non-convex shapes well    | Simplicity of implementation                             |
-//! | Disadvantages  | More complex implementation, Potentially higher memory usage | Slower for large datasets, Sensitive to degenerate cases |
+//! | Complexity     | $O(n \log h)$                                                | $O(nh)$                                                  |
+//! | Advantages     | Faster for large datasets                                    | Simplicity of implementation                             |
+//! | Disadvantages  | More complex implementation, Higher memory usage             | Slower for large datasets, Sensitive to degenerate cases |
 //! | Key Features   | Divide and conquer strategy                                  | Iterative selection of points, based on polar angle      |
 //! 
-//! ### Performance comparison
-//! todo explain
-//! ![Violin Plot](../violin.svg)
+//! To get a good comparison we performed benchmarks on both algorithms.
+//! Both algorithms were run on `10k` points and `100` samples were taken for each.
 //! 
-//! ### Flamegraph
-//! ![Flame](../kirk_patrick_flamegraph.svg)
+//! ### Jarvis March Performance
+//! <table style="border: 0;">
+//!   <tr>
+//!     <td style="text-align: center; vertical-align: middle; border: 0; width: 70%; background-color: white">
+//!       <img src="../jarvis_gauss.svg" alt="Jarvis March PDF">
+//!     </td>
+//!     <td style="vertical-align: middle; border: 0;">
+//!       <p>
+//!         This is the PDF plot for Jarvis March. 
+//!         The plot displays the relationship between the times taken, per iteration and the density.
+//!         This plot helps to show how the different iterations differed from each other.
+//!         We can see that the mean time taken was around <code>290 ms</code>.
+//!       </p>
+//!     </td>
+//!   </tr>
+//!   <tr>
+//!     <td style="text-align: center; vertical-align: middle; border: 0;  width: 70%; background-color: white">
+//!       <img src="../jarvis_iteration_times.svg" alt="Jarvis March Iteration Times">
+//!     </td>
+//!     <td style="vertical-align: middle; border: 0;">
+//!       <p>
+//!         This is the iteration times plot for Jarvis March. 
+//!         The plot displays what times each sample has taken.
+//!         There are <code>100</code> such samples.
+//!       </p>
+//!     </td>
+//!   </tr>
+//! </table>
+//! 
+//! ### Kirk Patrick Seidel Performance
+//! <table style="border: 0;">
+//!   <tr>
+//!     <td style="text-align: center; vertical-align: middle; border: 0; width: 70%; background-color: white;">
+//!       <img src="../kirkpatrick_gauss.svg" alt="Kirkpatrick-Seidel PDF">
+//!     </td>
+//!     <td style="vertical-align: middle; border: 0;">
+//!       <p>
+//!         This is the PDF plot for Kirkpatrick-Seidel. 
+//!         The plot displays the relationship between the times taken, per iteration and the density.
+//!         This plot helps to show how the different iterations differed from each other.
+//!         We can see that the mean time taken was around <code>59 ms</code>.
+//!       </p>
+//!     </td>
+//!   </tr>
+//!   <tr>
+//!     <td style="text-align: center; vertical-align: middle; border: 0;  width: 70%; background-color: white;">
+//!       <img src="../kirkpatrick_iteration_times.svg" alt="Kirkpatrick-Seidel Iteration Times">
+//!     </td>
+//!     <td style="vertical-align: middle; border: 0;">
+//!       <p>
+//!         This is the iteration times plot for Kirkpatrick-Seidel. 
+//!         The plot displays what times each sample has taken.
+//!         There are <code>100</code> such samples.
+//!       </p>
+//!     </td>
+//!   </tr>
+//! </table>
+//! 
+//! ### Conclusion
+//! We can finally plot both all the samples to get an estimation
+//! of how both the algorithms compare against each other.
+//! 
+//! <div style="background-color: white;">
+//!   <img src="../violin.svg" alt="Jarvis March Iteration Times">
+//! </div>
+//! 
+//! Here we can clearly see that Jarvis March lies around `300ms` and Kirkpatrick-Seidel algorithm
+//! stays just above `50ms`. Thus we can conclude that Kirkpatrick-Seidel is faster than Jarvis March.
 
 use bevy::{
     prelude::*,
@@ -75,7 +146,10 @@ struct ColorText;
 #[derive(Resource)]
 struct TextComment;
 
+/// Max zoom amount for the camera
 const MAX_ZOOM_OUT: f32 = 500.0;
+
+/// Text size of the text at bottom
 const TEXT_SIZE: f32 = 30.0;
 
 fn main() {

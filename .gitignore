@@ -1,2 +1,4 @@
 /target
 /profiling/target
+*.zip
+*.tar.gz

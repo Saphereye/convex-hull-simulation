@@ -410,12 +410,30 @@ fn connect(
         ),
         _ => (left, right),
     };
+    let (drawing_min, drawing_max) = match hull_type {
+        HullType::LowerHull => (
+            Vec2 {
+                x: min.x,
+                y: -min.y,
+            },
+            Vec2 {
+                x: max.x,
+                y: -max.y,
+            },
+        ),
+        _ => (min, max),
+    };
+    
     drawing_history.push(vec![
         LineType::PartOfHull(drawing_left, drawing_right),
         LineType::TextComment(format!(
             "Found the bridge points {} and {}",
             drawing_left, drawing_right
         )),
+        LineType::Temporary(drawing_min, drawing_left),
+        LineType::Temporary(drawing_left, drawing_right),
+        LineType::Temporary(drawing_right, drawing_max),
+        LineType::Temporary(drawing_max, drawing_min),
     ]);
 
     let mut left_points = vec![left];

@@ -2,7 +2,6 @@
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use rayon::prelude::*;
 
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
 struct Vec2 {

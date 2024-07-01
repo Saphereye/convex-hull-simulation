@@ -501,10 +501,10 @@ fn ui(
             drawing_history.0.clear();
 
             if point_data.1.is_empty() && point_data.3 > 0 {
-                (0..=point_data.3).for_each(|i| match distribution.0 {
+                (0..point_data.3).for_each(|i| match distribution.0 {
                     DistributionType::Fibonacci => {
                         let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);
-                        let (x, y) = fibonacci_circle(i);
+                        let (x, y) = fibonacci_circle(i+1);
                         if x.is_nan() || y.is_nan() {
                             return;
                         }

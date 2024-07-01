@@ -500,7 +500,7 @@ fn ui(
             point_data.0.clear();
             drawing_history.0.clear();
 
-            if point_data.1.is_empty() {
+            if point_data.1.is_empty() && point_data.3 > 0 {
                 (0..=point_data.3).for_each(|i| match distribution.0 {
                     DistributionType::Fibonacci => {
                         let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);

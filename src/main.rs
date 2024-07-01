@@ -1,7 +1,7 @@
 //! # Convex Hull Simulation
 //! A rust based step by step simulation of Jarvis March and Kirk Patrick Seidel algorithms for convex hull generation.
 //! The program uses [Bevy](https://bevyengine.org) as the game engine and [egui](https://github.com/emilk/egui) for the ui library.
-//! 
+//!
 //! The simulation is hosted on [GitHub](https://saphereye.github.io/Convex-Hull-CS-F364/).
 //!
 //! ## What is a convex hull?
@@ -20,7 +20,7 @@
 //! ## Comparison
 //! ### Short overview
 //! The following table gives a short overview of the differences between the two algorithms:
-//! 
+//!
 //! | Feature        | Kirk Seidel                                                  | Jarvis March                                             |
 //! | -------------- | ------------------------------------------------------------ | -------------------------------------------------------- |
 //! | Algorithm Type | Divide and Conquer                                           | Incremental/Gift Wrapping                                |
@@ -28,10 +28,10 @@
 //! | Advantages     | Faster for large datasets                                    | Simplicity of implementation                             |
 //! | Disadvantages  | More complex implementation, Higher memory usage             | Slower for large datasets, Sensitive to degenerate cases |
 //! | Key Features   | Divide and conquer strategy                                  | Iterative selection of points, based on polar angle      |
-//! 
+//!
 //! To get a good comparison we performed benchmarks on both algorithms.
 //! Both algorithms were run on `10k` points and `100` samples were taken for each.
-//! 
+//!
 //! ### Jarvis March Performance
 //! <table style="border: 0;">
 //!   <tr>
@@ -40,7 +40,7 @@
 //!     </td>
 //!     <td style="vertical-align: middle; border: 0;">
 //!       <p>
-//!         This is the PDF plot for Jarvis March. 
+//!         This is the PDF plot for Jarvis March.
 //!         The plot displays the relationship between the times taken, per iteration and the density.
 //!         This plot helps to show how the different iterations differed from each other.
 //!         We can see that the mean time taken was around <code>290 ms</code>.
@@ -53,14 +53,14 @@
 //!     </td>
 //!     <td style="vertical-align: middle; border: 0;">
 //!       <p>
-//!         This is the iteration times plot for Jarvis March. 
+//!         This is the iteration times plot for Jarvis March.
 //!         The plot displays what times each sample has taken.
 //!         There are <code>100</code> such samples.
 //!       </p>
 //!     </td>
 //!   </tr>
 //! </table>
-//! 
+//!
 //! ### Kirk Patrick Seidel Performance
 //! <table style="border: 0;">
 //!   <tr>
@@ -69,7 +69,7 @@
 //!     </td>
 //!     <td style="vertical-align: middle; border: 0;">
 //!       <p>
-//!         This is the PDF plot for Kirkpatrick-Seidel. 
+//!         This is the PDF plot for Kirkpatrick-Seidel.
 //!         The plot displays the relationship between the times taken, per iteration and the density.
 //!         This plot helps to show how the different iterations differed from each other.
 //!         We can see that the mean time taken was around <code>59 ms</code>.
@@ -82,22 +82,22 @@
 //!     </td>
 //!     <td style="vertical-align: middle; border: 0;">
 //!       <p>
-//!         This is the iteration times plot for Kirkpatrick-Seidel. 
+//!         This is the iteration times plot for Kirkpatrick-Seidel.
 //!         The plot displays what times each sample has taken.
 //!         There are <code>100</code> such samples.
 //!       </p>
 //!     </td>
 //!   </tr>
 //! </table>
-//! 
+//!
 //! ### Conclusion
 //! We can finally plot both all the samples to get an estimation
 //! of how both the algorithms compare against each other.
-//! 
+//!
 //! <div style="background-color: white;">
 //!   <img src="../violin.svg" alt="Jarvis March Iteration Times">
 //! </div>
-//! 
+//!
 //! Here we can clearly see that Jarvis March lies around `300ms` and Kirkpatrick-Seidel algorithm
 //! stays just above `50ms`. Thus we can conclude that Kirkpatrick-Seidel is faster than Jarvis March.
 
@@ -485,26 +485,12 @@ fn ui(
             "Select distribution type",
             &mut distribution.0,
             &[
-                ("Fibonacci", DistributionType::Fibonacci),
-                ("Circle Perimeter", DistributionType::CirclePerimeter),
-                ("Square Perimeter", DistributionType::Square),
-                ("Random", DistributionType::Random),
+                ("Fibonacci (Area)", DistributionType::Fibonacci),
+                ("Circle (Area)", DistributionType::CircleArea),
+                ("Circle (Perimeter)", DistributionType::CirclePerimeter),
+                ("Square (Area)", DistributionType::SquareArea),
             ],
         );
-
-        if ui.button("Clear world").clicked() {
-            despawn_entities(&mut commands, &point_query);
-            despawn_entities(&mut commands, &convex_hull_query);
-            despawn_entities(&mut commands, &gizmo_query);
-            despawn_entities(&mut commands, &text_query);
-            point_data.0.clear();
-            drawing_history.0.clear();
-        }
-
-        ui.checkbox(&mut point_data.4, "Manually add points by clicking");
-
-        // ui.text_edit_multiline(&mut point_data.1);
-        ui.code_editor(&mut point_data.1);
 
         if ui.button("Generate World").clicked() {
             despawn_entities(&mut commands, &point_query);
@@ -533,8 +519,8 @@ fn ui(
                             PointSingle,
                         ));
                     }
-                    DistributionType::Random => {
-                        let (x, y) = bounded_random(point_data.3);
+                    DistributionType::CircleArea => {
+                        let (x, y) = circle_area(point_data.3);
                         let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);
                         point_data.0.push(Vec2::new(x, y));
                         commands.spawn((
@@ -548,7 +534,7 @@ fn ui(
                         ));
                     }
                     DistributionType::CirclePerimeter => {
-                        let (x, y) = circle_points(point_data.3);
+                        let (x, y) = circle_perimeter(point_data.3);
                         let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);
                         point_data.0.push(Vec2::new(x, y));
                         commands.spawn((
@@ -561,8 +547,8 @@ fn ui(
                             PointSingle,
                         ));
                     }
-                    DistributionType::Square => {
-                        let (x, y) = bounded_random_square(point_data.3);
+                    DistributionType::SquareArea => {
+                        let (x, y) = square_area(point_data.3);
                         let color = Color::hsl(360. * i as f32 / point_data.3 as f32, 0.95, 0.7);
                         point_data.0.push(Vec2::new(x, y));
                         commands.spawn((
@@ -604,6 +590,20 @@ fn ui(
                     }
                 }
             }
+        }
+        
+        ui.checkbox(&mut point_data.4, "Manually add points by clicking");
+        
+        // ui.text_edit_multiline(&mut point_data.1);
+        ui.code_editor(&mut point_data.1);
+        
+        if ui.button("Clear world").clicked() {
+            despawn_entities(&mut commands, &point_query);
+            despawn_entities(&mut commands, &convex_hull_query);
+            despawn_entities(&mut commands, &gizmo_query);
+            despawn_entities(&mut commands, &text_query);
+            point_data.0.clear();
+            drawing_history.0.clear();
         }
 
         ui.separator();
